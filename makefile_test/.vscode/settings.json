@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "hello.h": "c",
+        "libc-header-start.h": "c"
+    },
+    "C_Cpp.default.compilerPath": "cl.exe"
+}

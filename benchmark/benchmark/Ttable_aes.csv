@@ -1,0 +1,4 @@
+DataSize(Bytes),iterations,TotalTime(sec),Average(sec),Throughput(MiBit/s)
+1024,100,0.00036760,0.000,2125.272
+1048576,100,0.38781310,0.004,2062.849
+10485760,100,4.00043930,0.040,1999.780

@@ -1,0 +1,7 @@
+
+.vscode/
+CMAKEFiles/
+build*/
+
+*.dll
+*.exe

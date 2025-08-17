@@ -1,0 +1,13 @@
+This software includes multiple components with different licenses:
+
+1. LibreSSL AES implementation
+   See LICENSE_LIBRESSL.txt for details.
+
+2. OpenSSL derived code
+   See LICENSE_OPENSSL.txt for details.
+
+3. Modifications by H.Y
+   (c) 2025 H.Y. All rights reserved.
+   License: ISC License
+
+Please make sure to comply with each component's license when distributing or modifying.
