@@ -2,32 +2,29 @@
 # 基本設定
 # ----------------------------
 cmake_minimum_required(VERSION 3.20)
-# プロジェクト名を AES_Project に設定。言語は C に限定
 project(AES_Project C)
-# C の規格を C11 に設定。
 set(CMAKE_C_STANDARD 11)
 
-# DLL / EXE / LIB を build/ 直下にまとめる
-# 実行ファイル・DLLの出力先を build ディレクトリ直下に設定
+# 出力ディレクトリの設定
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-# 静的ライブラリ(.lib/.a)の出力先
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-# 動的ライブラリ(.dll/.so)の出力先
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-
-
 message(STATUS "CMAKE_BINARY_DIR = ${CMAKE_BINARY_DIR}")
+
+# 共通コンパイルオプション
+set(COMMON_C_FLAGS "-O3 -Wall -fverbose-asm -masm=intel")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_C_FLAGS}")
+
 # ----------------------------
 # tiny_aes_dll
 # ----------------------------
-add_library(tiny_aes SHARED             # tiny_aes という名前の DLL を作成
+add_library(tiny_aes SHARED
     tiny_aes_dll/src/aes.c
     tiny_aes_dll/src/aes_256_ctr.c
 )
 target_include_directories(tiny_aes PUBLIC tiny_aes_dll/include)
 set_target_properties(tiny_aes PROPERTIES OUTPUT_NAME "tiny_aes")
-target_compile_options(tiny_aes PRIVATE -O3 -Wall -Itiny_aes_dll/include)
 
 # ----------------------------
 # ttable_aes_dll
@@ -37,7 +34,6 @@ add_library(ttable_aes SHARED
 )
 target_include_directories(ttable_aes PUBLIC ttable_aes_dll/include)
 set_target_properties(ttable_aes PROPERTIES OUTPUT_NAME "ttable_aes_t")
-target_compile_options(ttable_aes PRIVATE -O3 -Wall -Ittable_aes_dll/include)
 
 # ----------------------------
 # aes_ni/test.exe
@@ -53,3 +49,17 @@ set_target_properties(aes_ni_test PROPERTIES OUTPUT_NAME "aes_ni_test")
 add_executable(benchmark_test benchmark/test.c)
 target_include_directories(benchmark_test PRIVATE tiny_aes_dll/include ttable_aes_dll/include)
 set_target_properties(benchmark_test PROPERTIES OUTPUT_NAME "benchmark_test")
+
+# ----------------------------
+# アセンブリ出力用ターゲット
+# ----------------------------
+add_custom_target(asm_all
+    COMMAND ${CMAKE_C_COMPILER} -S -fverbose-asm -masm=intel -Ittable_aes_dll/include ${CMAKE_SOURCE_DIR}/ttable_aes_dll/src/aes_256_ctr.c -o ${CMAKE_BINARY_DIR}/ttable_aes_256_ctr.s
+    COMMAND ${CMAKE_C_COMPILER} -S -fverbose-asm -masm=intel -maes -msse2 -Iaes_ni/include ${CMAKE_SOURCE_DIR}/aes_ni/test.c -o ${CMAKE_BINARY_DIR}/aes_ni_test.s
+    COMMAND ${CMAKE_C_COMPILER} -S -fverbose-asm -masm=intel -Ibenchmark/include ${CMAKE_SOURCE_DIR}/benchmark/test.c -o ${CMAKE_BINARY_DIR}/benchmark_test.s
+    COMMENT "Generating assembly files (.s) in build directory"
+    VERBATIM
+)
+
+# make / ninja で asm_all も同時にビルドさせたい場合
+add_dependencies(asm_all tiny_aes ttable_aes aes_ni_test benchmark_test)

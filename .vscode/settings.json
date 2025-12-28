@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "aes.h": "c",
+        "stdint.h": "c"
+    },
+    "C_Cpp.default.compilerPath": ""
+}
