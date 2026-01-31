@@ -1,0 +1,17 @@
+import ctypes
+
+dll = ctypes.CDLL("sqlite_export.dll")
+
+buf = ctypes.POINTER(ctypes.c_ubyte)()
+size = ctypes.c_int()
+
+rc = dll.se_query(
+    b"test.db",
+    b"tb1",
+    b"id_src,id_dest",
+    b"data1,data2",
+    ctypes.byref(buf),
+    ctypes.byref(size)
+)
+
+data = ctypes.string_at(buf, size.value)
