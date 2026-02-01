@@ -51,9 +51,22 @@ SE_API int se_query(
     const char* db_path,
     const char* table,
     const char* pk_list,
+    const char* pk_values,
     const char* col_list,
     unsigned char** out_buf,
     int* out_size
+);
+
+/*
+ * CLI(EXE) の処理本体関数宣言
+ */
+int cli_run(
+    const char* db,
+    const char* table,
+    const char* pk,
+    const char* pk_values,
+    const char* cols,
+    const char* out
 );
 
 #endif

@@ -19,12 +19,13 @@ SE_API int se_query(
     const char* db_path,
     const char* table,
     const char* pk_list,
+    const char* pk_values,
     const char* col_list,
     unsigned char** out_buf,
     int* out_size
 ) {
-    char sql[512];
-    build_sql(table, pk_list, col_list, sql, sizeof(sql));
+    char sql[1024];
+    build_sql(table, pk_list, pk_values, col_list, sql, sizeof(sql));
 
     return exec_query_to_buffer(db_path, sql, out_buf, out_size);
 }

@@ -5,7 +5,6 @@
  */
 
 #pragma once
-#include <sqlite3.h>
 
 /*
  * SELECT 文を組み立てる関数

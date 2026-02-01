@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sqlite3.h>
 
 /*
  * SQL 文を生成する
