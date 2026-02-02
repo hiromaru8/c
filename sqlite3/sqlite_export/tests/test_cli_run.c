@@ -1,7 +1,7 @@
 /*
  * test_cli_run.c
  *
- * cli_run の単体テスト
+ * cli_runの単体テスト
  *  - テストケースは関数単位
  *  - main はテストランナーのみ
  */
@@ -137,7 +137,7 @@ static const char* OUT_BINARY_FILE = "out.bin";
 // 複合主キー + PK値指定
 int test_cli_composite_pk_values(void) {
     remove(OUT_BINARY_FILE);
-    int rc = cli_run(
+    int rc = cli_run_export(
         TEST_DB,
         "tb1",
         "id_src,id_dest",
@@ -167,7 +167,7 @@ int test_cli_composite_pk_values(void) {
 int test_cli_composite_pk_all(void) {
     remove(OUT_BINARY_FILE);
 
-    int rc = cli_run(
+    int rc = cli_run_export(
         TEST_DB,
         "tb1",
         "id_src,id_dest",
@@ -204,7 +204,7 @@ int test_cli_composite_pk_all(void) {
 int test_cli_single_pk_values(void) {
     remove(OUT_BINARY_FILE);
 
-    int rc = cli_run(
+    int rc = cli_run_export(
         TEST_DB,
         "tb2",
         "id",
@@ -234,7 +234,7 @@ int test_cli_single_pk_values(void) {
 int test_cli_single_pk_all(void) {
     remove(OUT_BINARY_FILE);
 
-    int rc = cli_run(
+    int rc = cli_run_export(
         TEST_DB,
         "tb2",
         "id",
@@ -273,7 +273,7 @@ int test_cli_single_pk_all(void) {
 int test_cli_no_data(void) {
     remove(OUT_BINARY_FILE);
 
-    int rc = cli_run(
+    int rc = cli_run_export(
         TEST_DB,
         "tb1",
         "id_src,id_dest",
@@ -291,7 +291,7 @@ int test_cli_no_data(void) {
 int test_cli_query_failed(void) {
     remove(OUT_BINARY_FILE);
 
-    int rc = cli_run(
+    int rc = cli_run_export(
         TEST_DB,
         "non_existing_table",
         "id",
@@ -308,7 +308,7 @@ int test_cli_query_failed(void) {
 int test_cli_db_open_failed(void) {
     remove(OUT_BINARY_FILE);
 
-    int rc = cli_run(
+    int rc = cli_run_export(
         "Z:/this/path/does/not/exist/test.db",
         "tb1",
         "id_src,id_dest",

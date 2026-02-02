@@ -2,7 +2,7 @@
 
 ## 実行例
 
-サンプルのデータベース
+### サンプルのデータベース作成
 
 ``` powershell
 .\create_sample_db.exe
@@ -10,13 +10,30 @@
 
 -> sample_test.db
 
-.\sqlite_export_cli.exe `
+### エクスポート
+
+``` powershell
+.\sqlite_export_cli.exe export`
   --db sample_test.db `
   --table tb1 `
   --pk id_src,id_dest `
   --pk-values "(1,10),(2,20)" `
   --columns data1,data2 `
   --out out.bin
+```
+
+### Update
+
+``` powershell
+.\sqlite_export_cli.exe update `
+  --db sample_test.db `
+  --table tb1 `
+  --pk id_src,id_dest `
+  --pk-values "(1,1)" `
+  --set "data1=X'0102', data2=X'0304'" `
+  --out out.bin
+```
+
 
 ## カバレッジ取得方法（MinGW）
 

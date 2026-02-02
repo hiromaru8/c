@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int cli_run(
+int cli_run_export(
     const char* db,
     const char* table,
     const char* pk,
@@ -24,7 +24,7 @@ int cli_run(
 ) {
 
     char sql[1024];
-    build_sql(table, pk, pk_values, cols, sql, sizeof(sql));
+    build_select_sql(table, pk, pk_values, cols, sql, sizeof(sql));
 
     printf("SQL: %s\n", sql);
 
@@ -53,3 +53,34 @@ int cli_run(
     return 0;
 
 }
+
+int cli_run_update(
+    const char* db,
+    const char* table,
+    const char* pk,
+    const char* pk_values,
+    const char* set
+) {
+    char sql[1024];
+    build_update_sql(
+        table,
+        set,
+        pk,
+        pk_values,
+        sql,
+        sizeof(sql)
+    );
+    printf("SQL: %s\n", sql);
+
+    int rc;
+    /* DB へ更新実行 */
+    rc = exec_update(db, sql);
+    if (rc != 0) {
+        printf("Update failed (rc=%d)\n", rc);
+        return 2;
+    }
+
+    printf("Update succeeded\n");
+    return 0;
+}
+

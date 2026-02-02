@@ -25,7 +25,7 @@ SE_API int se_query(
     int* out_size
 ) {
     char sql[1024];
-    build_sql(table, pk_list, pk_values, col_list, sql, sizeof(sql));
+    build_select_sql(table, pk_list, pk_values, col_list, sql, sizeof(sql));
 
     return exec_query_to_buffer(db_path, sql, out_buf, out_size);
 }

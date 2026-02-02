@@ -16,7 +16,7 @@
  * 例:
  *   SELECT data1,data2 FROM tb1 ORDER BY id_src,id_dest ASC;
  */
-int build_sql(
+int build_select_sql(
     const char* table,
     const char* pk_list,
     const char* pk_values,
@@ -53,7 +53,30 @@ int build_sql(
     return 0;
 }
 
-void* (*malloc_hook)(size_t) = malloc;
+/*
+ * UPDATE 文を生成する
+ *
+ * 例:
+ *   UPDATE tb1 SET data1=X'0102', data2=X'0304' WHERE (id_src,id_dest) IN ((1,10),(2,20));
+ */
+int build_update_sql(
+    const char* table,
+    const char* set_clause,   /* "data1=X'0102', data2=X'0304'" */
+    const char* pk_list,      /* "id_src,id_dest" */
+    const char* pk_values,    /* "(1,10),(2,20)" */
+    char* out_sql,
+    int maxlen
+) {
+    snprintf(out_sql, maxlen,
+        "UPDATE %s SET %s "
+        "WHERE (%s) IN (%s);",
+        table,
+        set_clause,
+        pk_list,     /* id_src,id_dest */
+        pk_values  /* (1,10),(2,20) */
+    );
+    return 0;
+}
 
 
 /*
@@ -191,3 +214,52 @@ int exec_query_to_buffer(
 
     return 0;
 }
+
+
+/*
+ * UPDATE 文を実行する（結果行なし）
+ *
+ * 戻り値:
+ *   0  : 成功（1件以上更新）
+ *  -1  : DB open 失敗
+ *  -2  : SQL prepare 失敗
+ *  -3  : 実行失敗
+ *  -4  : 更新件数 0
+ */
+int exec_update(
+    const char* db_path,
+    const char* sql
+) {
+    sqlite3* db = NULL;
+    sqlite3_stmt* stmt = NULL;
+    int rc;
+
+    rc = sqlite3_open(db_path, &db);
+    if (rc != SQLITE_OK) return -1;
+
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        sqlite3_close(db);
+        return -2;
+    }
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return -3;
+    }
+
+    int changed = sqlite3_changes(db);
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    if (changed == 0) {
+        return -4;  // 該当レコードなし
+    }
+
+    return 0;
+}
+
+

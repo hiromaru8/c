@@ -24,7 +24,7 @@
 int test_composite_pk_with_values(void) {
     char sql[1024];
 
-    build_sql(
+    build_select_sql(
         "tb1",
         "id_src,id_dest",
         "(1,10),(2,20)",
@@ -47,7 +47,7 @@ int test_composite_pk_with_values(void) {
 int test_composite_pk_all_rows(void) {
     char sql[1024];
 
-    build_sql(
+    build_select_sql(
         "tb1",
         "id_src,id_dest",
         NULL,
@@ -67,7 +67,7 @@ int test_composite_pk_all_rows(void) {
 int test_single_pk_with_values(void) {
     char sql[1024];
 
-    build_sql(
+    build_select_sql(
         "tb2",
         "id",
         "(1),(5),(9)",
@@ -89,7 +89,7 @@ int test_single_pk_with_values(void) {
 int test_single_pk_with_values2(void) {
     char sql[1024];
 
-    build_sql(
+    build_select_sql(
         "tb2",
         "id",
         "(1),(5),(9)",
@@ -110,7 +110,7 @@ int test_single_pk_with_values2(void) {
 int test_single_pk_all_rows(void) {
     char sql[1024];
 
-    build_sql(
+    build_select_sql(
         "tb2",
         "id",
         "",
