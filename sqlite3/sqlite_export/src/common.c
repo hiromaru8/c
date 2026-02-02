@@ -234,15 +234,18 @@ int exec_update(
     sqlite3_stmt* stmt = NULL;
     int rc;
 
+    /* DB オープン */
     rc = sqlite3_open(db_path, &db);
     if (rc != SQLITE_OK) return -1;
 
+    /* SQL プリペア */
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
         sqlite3_close(db);
         return -2;
     }
 
+    /* SQL 実行 */
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
         sqlite3_finalize(stmt);
@@ -250,11 +253,14 @@ int exec_update(
         return -3;
     }
 
+    /* 更新件数取得 */
     int changed = sqlite3_changes(db);
 
+    /* 後処理 */
     sqlite3_finalize(stmt);
     sqlite3_close(db);
 
+    //  更新件数 0 の場合はエラーとする
     if (changed == 0) {
         return -4;  // 該当レコードなし
     }

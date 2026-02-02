@@ -1,5 +1,8 @@
 # memo
+$env:PATH="C:\msys64\mingw64\bin;$env:PATH"
 
+cmake -S . -B build -G "MinGW Makefiles" 
+cmake --build build
 ## 実行例
 
 ### サンプルのデータベース作成
