@@ -53,61 +53,141 @@ int build_sql(
     return 0;
 }
 
+void* (*malloc_hook)(size_t) = malloc;
+
 
 /*
- * SQL を実行し、取得した BLOB をバッファに格納
+ * SQL クエリを実行し、結果セットを 1 つのバイナリバッファに連結して返す
+ *
+ * - 各行・各カラムを sqlite3_column_blob() で取得する
+ * - INTEGER / TEXT / BLOB すべて「バイト列」として扱われる
+ * - 行区切り・列区切りの情報は保持しない（純粋な生バイト連結）
+ *
+ * 戻り値:
+ *   0  : 成功
+ *  <0  : エラー
  */
 int exec_query_to_buffer(
-    const char* db_path,
-    const char* sql,
-    unsigned char** out_buf,
-    int* out_size
+    const char* db_path,          /* SQLite DB ファイルパス */
+    const char* sql,              /* 実行する SELECT 文 */
+    unsigned char** out_buf,      /* 生成したバッファの返却先 */
+    int* out_size                 /* バッファサイズ（byte） */
 ) {
-    sqlite3* db;
-    sqlite3_stmt* stmt;
+    sqlite3* db = NULL;
+    sqlite3_stmt* stmt = NULL;
     int rc;
 
-    /* DB をオープン */
+    /* =========================================================
+     * DB をオープン
+     * ========================================================= */
     rc = sqlite3_open(db_path, &db);
-    if (rc != SQLITE_OK) return -1;
+    if (rc != SQLITE_OK) {
+        /* db は内部で確保されている可能性があるが、
+           sqlite3_open 失敗時は close 不要 */
+        return -1;
+    }
 
-    /* SQL をコンパイル */
+    /* =========================================================
+     * SQL をプリペア（コンパイル）
+     * ========================================================= */
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) return -2;
+    if (rc != SQLITE_OK) {
+        sqlite3_close(db);
+        return -2;
+    }
 
-    /*
-     * 動的にサイズが増えるバッファ
+    /* =========================================================
+     * 動的に拡張される出力バッファ
+     * =========================================================
+     * cap  : 現在の確保容量
+     * size : 実際に使用しているサイズ
      */
     int cap = 1024;
     int size = 0;
     unsigned char* buf = malloc(cap);
+    if (buf == NULL) { 
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return -3;
+    }
 
-    /*
-     * 1 レコードずつ処理
-     */
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    /* =========================================================
+     * クエリ結果を 1 行ずつ処理
+     * ========================================================= */
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+
+        /* この行のカラム数 */
         int cols = sqlite3_column_count(stmt);
 
         for (int i = 0; i < cols; i++) {
+
+            /*
+             * カラムのデータを BLOB として取得
+             *
+             * 注意:
+             *  - INTEGER 型でも sqlite3_column_blob() を使うと
+             *    「内部表現のバイト列」が返る
+             *  - 例: INTEGER 1 → '1' → 0x31（ASCII）
+             *  - 数値のバイナリ表現（0x01）にはならない
+             */
             const void* blob = sqlite3_column_blob(stmt, i);
             int len = sqlite3_column_bytes(stmt, i);
 
-            /* バッファ不足なら拡張 */
+            /*
+             * NULL カラムの場合:
+             *   blob == NULL
+             *   len  == 0
+             * memcpy しても問題はないが、
+             * NULL を区別したい場合はここで判定が必要
+             */
+
+            /* =================================================
+             * バッファ容量が足りなければ拡張
+             * ================================================= */
             if (size + len > cap) {
-                cap *= 2;
-                buf = realloc(buf, cap);
+                /* 必要になるまで 2 倍拡張 */
+                while (size + len > cap) {
+                    cap *= 2;
+                }
+                unsigned char* new_buf = realloc(buf, cap);
+                if (!new_buf) {
+                    free(buf);
+                    sqlite3_finalize(stmt);
+                    sqlite3_close(db);
+                    return -4;
+                }
+                buf = new_buf;
             }
 
-            /* BLOB を連結 */
-            memcpy(buf + size, blob, len);
-            size += len;
+            /* =================================================
+             * カラムのバイト列を連結
+             * ================================================= */
+            if (len > 0) {
+                memcpy(buf + size, blob, len);
+                size += len;
+            }
         }
     }
 
+    /*
+     * SQLITE_DONE 以外で抜けた場合はエラー
+     */
+    if (rc != SQLITE_DONE) {
+        free(buf);
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return -5;
+    }
+
+    /* =========================================================
+     * 後処理
+     * ========================================================= */
     sqlite3_finalize(stmt);
     sqlite3_close(db);
 
+    /* 呼び出し元へ返却 */
     *out_buf = buf;
     *out_size = size;
+
     return 0;
 }

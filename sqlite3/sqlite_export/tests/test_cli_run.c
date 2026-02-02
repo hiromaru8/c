@@ -93,7 +93,6 @@ int load_file(
 }
 
 
-
 /* ===== 簡易 ASSERT ===== */
 // 真偽 ASSERTマクロ
 #define ASSERT(cond) \
@@ -132,6 +131,9 @@ int load_file(
 static const char* TEST_DB = "test.db";
 static const char* OUT_BINARY_FILE = "out.bin";
 
+// ==========
+// 正常系テスト
+// ==========
 // 複合主キー + PK値指定
 int test_cli_composite_pk_values(void) {
     remove(OUT_BINARY_FILE);
@@ -260,6 +262,62 @@ int test_cli_single_pk_all(void) {
     ASSERT_MEMEQ(exp, act, exp_size);
 
     free(act);
+    return 0;
+}
+
+// ==========
+// 準正常系テスト
+// ==========
+
+// no data case
+int test_cli_no_data(void) {
+    remove(OUT_BINARY_FILE);
+
+    int rc = cli_run(
+        TEST_DB,
+        "tb1",
+        "id_src,id_dest",
+        "(999,999)",
+        "*",
+        OUT_BINARY_FILE
+    );
+    ASSERT_EQ(3, rc);  // No data retrieved
+
+    return 0;
+}
+
+// query failed
+// (table not exist)
+int test_cli_query_failed(void) {
+    remove(OUT_BINARY_FILE);
+
+    int rc = cli_run(
+        TEST_DB,
+        "non_existing_table",
+        "id",
+        NULL,
+        "*",
+        OUT_BINARY_FILE
+    );
+    ASSERT_EQ(2, rc);  // Query failed
+
+    return 0;
+}
+
+// DB Open失敗
+int test_cli_db_open_failed(void) {
+    remove(OUT_BINARY_FILE);
+
+    int rc = cli_run(
+        "Z:/this/path/does/not/exist/test.db",
+        "tb1",
+        "id_src,id_dest",
+        NULL,
+        "*",
+        OUT_BINARY_FILE
+    );
+    ASSERT_EQ(2, rc);  // Query failed (DB open failed)
+
     return 0;
 }
 

@@ -24,4 +24,5 @@ cmake -S . -B build -G "MinGW Makefiles"
 cmake --build build
 cd build
 ./test_build_sql
-gcov.exe .\CMakeFiles\sqlite_export_core.dir\src\common.c.gcda  
+gcov.exe .\CMakeFiles\sqlite_export_core_cov.dir\src\common.c.gcda
+gcov.exe .\CMakeFiles\sqlite_export_core_cov.dir\src\cli_run.c.gcda

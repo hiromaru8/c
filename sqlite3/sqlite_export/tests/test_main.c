@@ -31,10 +31,16 @@ int main(void) {
 
 
     // cli_run.c のテストもここで実行
+    // 正常系テスト
     failed += test_cli_composite_pk_values();
     failed += test_cli_composite_pk_all();
     failed += test_cli_single_pk_values();
     failed += test_cli_single_pk_all();
+    // 準正常系テスト
+    failed += test_cli_no_data();
+    failed += test_cli_query_failed();
+    failed += test_cli_db_open_failed();
+    // ---- TEARDOWN ---- */
     remove(OUT_BINARY_FILE);
     remove(TEST_DB);
 

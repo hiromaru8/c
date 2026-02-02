@@ -30,10 +30,11 @@ int cli_run(
 
     unsigned char* buf;
     int size;
-
+    int rc;
     /* DB からデータ取得 */
-    if (exec_query_to_buffer(db, sql, &buf, &size) != 0) {
-        printf("Query failed\n");
+    rc = exec_query_to_buffer(db, sql, &buf, &size);
+    if (rc != 0) {
+        printf("Query failed (rc=%d)\n", rc);
         return 2;
     }
     if(buf == NULL || size <= 0) {
