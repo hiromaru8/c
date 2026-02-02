@@ -85,10 +85,13 @@ int main(int argc, char* argv[]) {
      * 引数解析
      */
     if (argc < 2) {
-        printf("usage: export | update ...\n");
-        return 1;
+        goto arg_error;
     }
-
+    /* --help / -h（どこでもOK） */
+    if (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h")) {
+        goto arg_error;
+    }
+    
     /* サブコマンド判定 */
     if (!strcmp(argv[1], "export")) {
         mode = MODE_EXPORT;
@@ -96,10 +99,7 @@ int main(int argc, char* argv[]) {
         mode = MODE_UPDATE;
     } else {
         printf("Unknown command: %s\n", argv[1]);
-        print_usage_common();
-        print_usage_export();
-        print_usage_update();
-        return 1;
+        goto arg_error;
     }
 
     /* 共通オプション解析 */
@@ -121,6 +121,10 @@ int main(int argc, char* argv[]) {
             pk_values = argv[++i];
         }
         else if (!strcmp(argv[i], "--columns")) {
+            if (mode != MODE_EXPORT) {
+                printf("--columns is only valid for export\n\n");
+                goto arg_error;
+            }
             REQUIRE_VALUE("--columns");
             cols = argv[++i];
         }
@@ -131,6 +135,8 @@ int main(int argc, char* argv[]) {
         else if (!strcmp(argv[i], "--set")) {
             REQUIRE_VALUE("--set");
             set = argv[++i];
+        }else if (strcmp(argv[i], "--help") || strcmp(argv[i], "-h")) {
+            goto arg_error;
         }
         else {
             printf("Unknown option: %s\n\n", argv[i]);
@@ -157,17 +163,13 @@ int main(int argc, char* argv[]) {
         return cli_run_update(db, table, pk, pk_values, set);
     }
 
-    return 0;
-
-
     arg_error:
-    if (mode == MODE_EXPORT) {
-        print_usage_export();
-    } else if (mode == MODE_UPDATE) {
-        print_usage_update();
-    } else {
-        print_usage_common();
-    }
-    return 1;
-
+        if (mode == MODE_EXPORT) {
+            print_usage_export();
+        } else if (mode == MODE_UPDATE) {
+            print_usage_update();
+        } else {
+            print_usage_common();
+        }
+        return 1;    
 }
