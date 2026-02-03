@@ -228,7 +228,8 @@ int exec_query_to_buffer(
  */
 int exec_update(
     const char* db_path,
-    const char* sql
+    const char* sql,
+    int* affected_rows
 ) {
     sqlite3* db = NULL;
     sqlite3_stmt* stmt = NULL;
@@ -255,6 +256,9 @@ int exec_update(
 
     /* 更新件数取得 */
     int changed = sqlite3_changes(db);
+    if (affected_rows) {
+        *affected_rows = changed;
+    }
 
     /* 後処理 */
     sqlite3_finalize(stmt);

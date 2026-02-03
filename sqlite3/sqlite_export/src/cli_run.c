@@ -74,13 +74,14 @@ int cli_run_update(
 
     int rc;
     /* DB へ更新実行 */
-    rc = exec_update(db, sql);
+    int affected_rows = 0;
+    rc = exec_update(db, sql, &affected_rows);
     if (rc != 0) {
         printf("Update failed (rc=%d)\n", rc);
         return 2;
     }
 
-    printf("Update succeeded\n");
+    printf("Update succeeded, affected rows: %d\n", affected_rows);
     return 0;
 }
 

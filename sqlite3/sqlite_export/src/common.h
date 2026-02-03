@@ -59,5 +59,6 @@ int exec_query_to_buffer(
  */
 int exec_update(
     const char* db_path,
-    const char* sql
+    const char* sql,
+    int* affected_rows
 );
