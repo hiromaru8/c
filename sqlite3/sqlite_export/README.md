@@ -11,6 +11,12 @@ cmake -S . -B build -G "MinGW Makefiles"
 cmake --build build
 ```
 
+依存関係確認
+
+``` powershell
+objdump -p .\build\sqlite_export_cli.exe | Select-String dll
+```
+
 ## 実行例
 
 ### サンプルのデータベース作成
