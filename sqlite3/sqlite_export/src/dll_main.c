@@ -29,3 +29,37 @@ SE_API int se_query(
 
     return exec_query_to_buffer(db_path, sql, out_buf, out_size);
 }
+
+/*  
+ * DLL から呼び出される関数
+ *
+ * CUI の update コマンドと同等の処理を行う
+ */
+SE_API int se_update(
+    const char* db_path,
+    const char* table,
+    const char* pk_list,
+    const char* pk_values,
+    const char* set_clause,
+    int* affected_rows
+) {
+    char sql[1024];
+
+    if (!db_path || !table || !pk_list || !pk_values || !set_clause) {
+        return -10;  // 引数不正
+    }
+
+    build_update_sql(
+        table,
+        set_clause,
+        pk_list,
+        pk_values,
+        sql,
+        sizeof(sql)
+    );
+
+    /* デバッグ用（必要なら） */
+    /* printf("SQL: %s\n", sql); */
+
+    return exec_update(db_path, sql, affected_rows);
+}

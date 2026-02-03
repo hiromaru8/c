@@ -58,6 +58,30 @@ SE_API int se_query(
 );
 
 /*
+ * SQLite のレコードを更新する関数
+ *
+ * 引数:
+ *  db_path    : SQLite DB ファイルパス
+ *  table      : テーブル名
+ *  pk_list    : 主キー名（例 "id_src,id_dest"）
+ *  pk_values  : 主キー値リスト（例 "(1,10),(2,20)"）
+ *  set_clause : SET 句（例 "data1=X'0102', data2=X'0304'"）
+ *
+ * 戻り値:
+ *   0  : 成功（1件以上更新）
+ *  <0  : エラー
+ */
+SE_API int se_update(
+    const char* db_path,
+    const char* table,
+    const char* pk_list,
+    const char* pk_values,
+    const char* set_clause,
+    int* affected_rows
+);
+
+
+/*
  * CLI(EXE) の処理本体関数宣言
  */
 int cli_run(
