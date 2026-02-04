@@ -88,7 +88,7 @@ if __name__ == "__main__":
     test_se_query(table=b"tb2", pk_list=b"id", pk_values=b"(1),(2)", col_list=b"data1,data2")
     test_se_query(table=b"tb2", pk_list=b"id", pk_values=None, col_list=b"id")
     test_se_query(table=b"tb1", pk_list=b"id_src,id_dest", pk_values=b"(1,10)", col_list=b"id_src")
-    test_se_query(table=b"tb1", pk_list=b"id_src,id_dest", pk_values=b"(1,10)", col_list=b"id_dest")
+    test_se_query(table=b"tb1", pk_list=b"id_src,id_dest", pk_values=None, col_list=b"data1")
     
     print("\n--- Performing Update ---\n")
     test_update_se_query(table=b"tb1", pk_list=b"id_src", pk_values=b"(1)", set_clause=b"data1=X'0000', data2=X'ffff'")
