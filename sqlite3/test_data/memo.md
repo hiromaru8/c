@@ -1,7 +1,8 @@
 
 # command memo
+このメモの実行プログラムは[SQLite公式](https://sqlite.org/download.html)から入手。
 
-https://sqlite.org/download.html
+Precompiled Binaries for Windows
 
 ``` cmd
 sqlite3.exe test.db < init.sql
