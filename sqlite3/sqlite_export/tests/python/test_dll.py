@@ -58,9 +58,9 @@ def test_se_query(db_path=b"sample_test.db",
 
     # Free the allocated buffer if necessary (depends on DLL implementation)
     # dll.free_buffer(out_buf)
-
     print("Output Size:", out_size.value)
     print("Output Bytes:", output_bytes.hex())
+
     
     
 def test_update_se_query(db_path=b"sample_test.db",
@@ -86,6 +86,9 @@ if __name__ == "__main__":
     test_se_query()
     test_se_query(table=b"tb1", pk_list=b"id_src", pk_values=b"(1)", col_list=b"data1,data2")
     test_se_query(table=b"tb2", pk_list=b"id", pk_values=b"(1),(2)", col_list=b"data1,data2")
+    test_se_query(table=b"tb2", pk_list=b"id", pk_values=None, col_list=b"id")
+    test_se_query(table=b"tb1", pk_list=b"id_src,id_dest", pk_values=b"(1,10)", col_list=b"id_src")
+    test_se_query(table=b"tb1", pk_list=b"id_src,id_dest", pk_values=b"(1,10)", col_list=b"id_dest")
     
     print("\n--- Performing Update ---\n")
     test_update_se_query(table=b"tb1", pk_list=b"id_src", pk_values=b"(1)", set_clause=b"data1=X'0000', data2=X'ffff'")
