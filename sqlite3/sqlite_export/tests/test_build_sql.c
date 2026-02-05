@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "../src/common.h"
+#include "common.h"
 
 /*
  * 文字列比較用アサート

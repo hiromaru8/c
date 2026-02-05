@@ -39,8 +39,8 @@ target_include_directories(sqlite3
 # ============================================================
 # DLL / CLI から共通で利用する処理をまとめたライブラリ
 add_library(sqlite_export_core STATIC
-    src/common.c
-    src/cli_run.c
+    src/core/common.c
+    src/cli/cli_run.c
 )
 
 # SQLite3 を利用
@@ -51,6 +51,7 @@ target_link_libraries(sqlite_export_core
 # 公開ヘッダの場所
 target_include_directories(sqlite_export_core
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/core
 )
 
 # MSVCでは C11 を明示（_Static_assert 等を確実に使うため）
@@ -63,8 +64,7 @@ endif()
 # ============================================================
 # 製品用と同じソースだが、テスト時のみカバレッジを取得するため別ターゲットにする
 add_library(sqlite_export_core_cov STATIC
-    src/common.c
-    src/cli_run.c
+    src/core/common.c
 )
 
 target_link_libraries(sqlite_export_core_cov
@@ -73,6 +73,8 @@ target_link_libraries(sqlite_export_core_cov
 
 target_include_directories(sqlite_export_core_cov
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
 )
 
 # GCC / MinGW の場合のみカバレッジを有効化
@@ -92,7 +94,7 @@ endif()
 # DLL（外部から利用されるライブラリ）
 # ============================================================
 add_library(sqlite_export SHARED
-    src/dll_main.c
+    src/dll/dll_main.c
 )
 
 target_link_libraries(sqlite_export
@@ -123,7 +125,8 @@ endif()
 # CLI（コマンドラインツール）
 # ============================================================
 add_executable(sqlite_export_cli
-    src/cli_main.c
+    src/cli/cli_run.c
+    src/cli/cli_main.c
 )
 
 target_link_libraries(sqlite_export_cli
@@ -149,7 +152,7 @@ endif()
 # サンプルツール（テスト用DB生成）
 # ============================================================
 add_executable(create_sample_db
-    src/create_sample_db.c
+    tests/fixtures/create_sample_db.c
 )
 
 target_link_libraries(create_sample_db
@@ -174,7 +177,9 @@ add_executable(test_build
     tests/test_build_sql.c
     tests/test_cli_run.c
     tests/test_main.c
-)
+    src/cli/cli_run.c
+    src/core/common.c
+    )
 
 target_link_libraries(test_build
     PRIVATE sqlite_export_core_cov
