@@ -5,6 +5,8 @@
  */
 
 #define SQLITE_EXPORT_DLL
+#include <stddef.h>
+#include <sqlite3.h>
 #include "sqlite_export.h"
 #include "common.h"
 
@@ -27,7 +29,16 @@ SE_API int se_query(
     char sql[1024];
     build_select_sql(table, pk_list, pk_values, col_list, sql, sizeof(sql));
 
-    return exec_query_to_buffer(db_path, sql, out_buf, out_size);
+    int rc;
+    sqlite3* db = NULL;
+    rc = open_database_readonly(db_path, &db);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = exec_query_to_buffer(db, sql, out_buf, out_size);
+    close_database(db);
+    return rc;
 }
 
 /*  
@@ -61,5 +72,14 @@ SE_API int se_update(
     /* デバッグ用（必要なら） */
     /* printf("SQL: %s\n", sql); */
 
-    return exec_update(db_path, sql, affected_rows);
+    int rc;
+    sqlite3* db = NULL;
+    rc = open_database_readwrite(db_path, &db);
+    if (rc != 0) {
+        return rc;
+    }
+    
+    rc = exec_update(db, sql, affected_rows);
+    close_database(db);
+    return rc;
 }

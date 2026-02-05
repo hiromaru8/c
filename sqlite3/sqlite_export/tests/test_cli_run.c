@@ -316,7 +316,7 @@ int test_cli_db_open_failed(void) {
         "*",
         OUT_BINARY_FILE
     );
-    ASSERT_EQ(2, rc);  // Query failed (DB open failed)
+    ASSERT_EQ(1, rc);  // Query failed (DB open failed)
 
     return 0;
 }

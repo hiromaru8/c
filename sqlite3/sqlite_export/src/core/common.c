@@ -80,6 +80,52 @@ int build_update_sql(
 
 
 /*
+ * 読み取り専用モードで SQLite DB をオープンする
+ */
+int open_database_readonly(
+    const char* db_path,
+    sqlite3** out_db
+) {
+    sqlite3* db = NULL;
+    int rc = sqlite3_open_v2(db_path, &db,
+        SQLITE_OPEN_READONLY | SQLITE_OPEN_URI,
+        NULL);
+    if (rc != SQLITE_OK) {
+        return rc;
+    }
+    *out_db = db;
+    return SQLITE_OK;
+}
+
+
+/*
+ * 読み書きモードで SQLite DB をオープンする
+ */
+int open_database_readwrite(
+    const char* db_path,
+    sqlite3** out_db
+) {
+    sqlite3* db = NULL;
+    int rc = sqlite3_open_v2(db_path, &db,
+        SQLITE_OPEN_READWRITE | SQLITE_OPEN_URI,
+        NULL);
+    if (rc != SQLITE_OK) {
+        return rc;
+    }
+    *out_db = db;
+    return SQLITE_OK;
+}
+
+/*
+ * SQLite DB をクローズする
+ */
+int close_database(sqlite3* db) {
+    return sqlite3_close(db);
+}
+
+
+
+/*
  * SQL クエリを実行し、結果セットを 1 つのバイナリバッファに連結して返す
  *
  * - 各行・各カラムを sqlite3_column_blob() で取得する
@@ -91,24 +137,13 @@ int build_update_sql(
  *  <0  : エラー
  */
 int exec_query_to_buffer(
-    const char* db_path,          /* SQLite DB ファイルパス */
+    sqlite3* db,                  /* SQLite DB ハンドル */
     const char* sql,              /* 実行する SELECT 文 */
     unsigned char** out_buf,      /* 生成したバッファの返却先 */
     int* out_size                 /* バッファサイズ（byte） */
 ) {
-    sqlite3* db = NULL;
     sqlite3_stmt* stmt = NULL;
     int rc;
-
-    /* =========================================================
-     * DB をオープン
-     * ========================================================= */
-    rc = sqlite3_open(db_path, &db);
-    if (rc != SQLITE_OK) {
-        /* db は内部で確保されている可能性があるが、
-           sqlite3_open 失敗時は close 不要 */
-        return -1;
-    }
 
     /* =========================================================
      * SQL をプリペア（コンパイル）
@@ -227,17 +262,12 @@ int exec_query_to_buffer(
  *  -4  : 更新件数 0
  */
 int exec_update(
-    const char* db_path,
+    sqlite3* db,
     const char* sql,
     int* affected_rows
 ) {
-    sqlite3* db = NULL;
     sqlite3_stmt* stmt = NULL;
     int rc;
-
-    /* DB オープン */
-    rc = sqlite3_open(db_path, &db);
-    if (rc != SQLITE_OK) return -1;
 
     /* SQL プリペア */
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);

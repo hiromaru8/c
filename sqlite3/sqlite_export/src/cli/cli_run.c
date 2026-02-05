@@ -15,7 +15,7 @@
 #include <string.h>
 
 int cli_run_export(
-    const char* db,
+    const char* db_path,
     const char* table,
     const char* pk,
     const char* pk_values,
@@ -31,16 +31,28 @@ int cli_run_export(
     unsigned char* buf;
     int size;
     int rc;
+    /* DB Open*/
+    sqlite3* db = NULL;
+    rc = open_database_readonly(db_path, &db);
+    if (rc != 0) {
+        printf("DB open failed (rc=%d)\n", rc);
+        return 1;
+    }
+
+
     /* DB からデータ取得 */
     rc = exec_query_to_buffer(db, sql, &buf, &size);
     if (rc != 0) {
         printf("Query failed (rc=%d)\n", rc);
+        close_database(db);
         return 2;
     }
     if(buf == NULL || size <= 0) {
         printf("No data retrieved\n");
+        close_database(db);
         return 3;
     }
+    close_database(db);
 
     /* バイナリファイルへ書き込み */
     FILE* fp = fopen(out, "wb");
@@ -55,7 +67,7 @@ int cli_run_export(
 }
 
 int cli_run_update(
-    const char* db,
+    const char* db_path,
     const char* table,
     const char* pk,
     const char* pk_values,
@@ -73,15 +85,25 @@ int cli_run_update(
     printf("SQL: %s\n", sql);
 
     int rc;
+    /* DB Open*/
+    sqlite3* db = NULL;
+    rc = open_database_readwrite(db_path, &db);
+    if (rc != 0) {
+        printf("DB open failed (rc=%d)\n", rc);
+        return 1;
+    }
+
     /* DB へ更新実行 */
     int affected_rows = 0;
     rc = exec_update(db, sql, &affected_rows);
     if (rc != 0) {
         printf("Update failed (rc=%d)\n", rc);
+        close_database(db);
         return 2;
     }
 
     printf("Update succeeded, affected rows: %d\n", affected_rows);
+    close_database(db);
     return 0;
 }
 

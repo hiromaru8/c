@@ -6,6 +6,8 @@
 
 #pragma once
 
+typedef struct sqlite3 sqlite3;  // ← 前方宣言だけ
+
 /*
  * SELECT 文を組み立てる関数
  *
@@ -41,13 +43,36 @@ int build_update_sql(
     int maxlen
 );
 
+
+/*
+ * 読み取り専用モードで SQLite DB をオープンする
+ */
+int open_database_readonly(
+    const char* db_path,
+    sqlite3** out_db
+);
+
+/*
+ * 読み書きモードで SQLite DB をオープンする
+ */
+int open_database_readwrite(
+    const char* db_path,
+    sqlite3** out_db
+);
+
+/*
+ * SQLite DB をクローズする
+ */
+int close_database(sqlite3* db);
+
+
 /*
  * SQL を実行し、結果を 1 つのバッファにまとめる
  *
  * SQLite の BLOB をそのまま連結して返す
  */
 int exec_query_to_buffer(
-    const char* db_path,
+    sqlite3* db,
     const char* sql,
     unsigned char** out_buf,
     int* out_size
@@ -58,7 +83,7 @@ int exec_query_to_buffer(
  * UPDATE 文を実行する（結果行なし）
  */
 int exec_update(
-    const char* db_path,
+    sqlite3* db,
     const char* sql,
     int* affected_rows
 );
