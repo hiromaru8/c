@@ -2,3 +2,7 @@
 *.s
 *.exe
 *.out    
+
+.VSCodeCounter/
+.mypy_cache/
+__pycache__/
