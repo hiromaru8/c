@@ -19,7 +19,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
-
+if (MSVC)
+    add_compile_options(
+        /utf-8
+        /W4
+    )
+endif()
 # ============================================================
 # 外部ライブラリ：SQLite3
 # ============================================================
