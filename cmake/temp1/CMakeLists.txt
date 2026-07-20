@@ -1,11 +1,19 @@
 cmake_minimum_required(VERSION 3.16)
 
+set(MY_VERSION "" CACHE STRING "Project version")
+if(MY_VERSION STREQUAL "")
+    message(FATAL_ERROR "MY_VERSION is not specified. Use -DMY_VERSION=x.y.z")
+endif()
+
+
 # ============================================================
 # Project
 # ============================================================
-project(MyProject 
-        VERSION 1.2.3
-        LANGUAGES C)      # C言語のプロジェクトとして定義
+project(
+    MyProject
+    VERSION ${MY_VERSION}
+    LANGUAGES C             # C言語のプロジェクトとして定義
+)      
 
 # ============================================================
 # C Standard
@@ -30,6 +38,7 @@ if(MSVC)
         /W4                 # 警告レベル4（最も詳細な警告）を有効化
         /utf-8              # ソースコードの文字エンコーディングをUTF-8に設定  
         /permissive-        # 標準C/C++に準拠していないコードに対してエラーを出す
+        /GS                 # バッファオーバーフロー検出を有効化
     )
 else()
     add_compile_options(
@@ -67,7 +76,12 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         include
 )
-
+if(MSVC)
+    target_link_options(${PROJECT_NAME} PRIVATE
+        /DYNAMICBASE
+        /NXCOMPAT
+    )
+endif()
 # ============================================================
 # Libraries
 # ============================================================
@@ -98,6 +112,8 @@ set_target_properties(${PROJECT_NAME}
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
         $<$<CONFIG:Debug>:DEBUG> # Debugビルドの場合にDEBUGマクロを定義
+        APP_VERSION="${PROJECT_VERSION}" # プロジェクトのバージョンをAPP_VERSIONマクロとして定義
+
 )
 
 # ============================================================

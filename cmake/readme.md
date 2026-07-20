@@ -11,3 +11,4 @@ cmake -S . -B build -G "MinGW Makefiles"
 cmake --build build
 ```
 
+Visual Studio 19 2026

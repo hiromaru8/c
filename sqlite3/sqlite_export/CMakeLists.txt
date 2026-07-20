@@ -18,6 +18,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 #   ・配布時に Visual C++ 再頒布パッケージを不要にする
 if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(MSVC_RUNTIME_LIBRARY  "MultiThreadedDLL")
 endif()
 if (MSVC)
     add_compile_options(
