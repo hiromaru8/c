@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <windows.h>
-
+#include <bcrypt.h>
+#include <ntstatus.h>
 #define ITERATIONS 100
 
 // ---- tiny_aes ----
@@ -138,7 +139,20 @@ static double measure_speed_tiny(const char *dll_path,
 
     uint8_t key[32] = {0};
     uint8_t iv[16]  = {0};
+    unsigned char random[32];
 
+    NTSTATUS status = BCryptGenRandom(
+        NULL,
+        random,
+        sizeof(random),
+        BCRYPT_USE_SYSTEM_PREFERRED_RNG
+    );
+
+    if (status != STATUS_SUCCESS) {
+        printf("BCryptGenRandom failed\n");
+        return -1.0;
+    }
+    
     uint8_t *data =
         (uint8_t *)VirtualAlloc(NULL,
                                 data_size,
@@ -157,13 +171,32 @@ static double measure_speed_tiny(const char *dll_path,
 
     printf("Data Size : %zu bytes\n", data_size);
 
+    // =====　測定開始　=====
     double start = get_time_sec();
 
+    // AES-CTR暗号化をITERATIONS回実行
     for (int i = 0; i < ITERATIONS; i++) {
+        // ivは乱数とする
+        if (BCryptGenRandom(
+                NULL,
+                iv,
+                sizeof(iv),
+                BCRYPT_USE_SYSTEM_PREFERRED_RNG) < 0)
+        {
+            printf("BCryptGenRandom failed\n");
+            VirtualFree(data, 0, MEM_RELEASE);
+            FreeLibrary(h);
+            return -1.0;
+        }
+        // printf("  Iteration %d: iv = ", i + 1);
+        // for (int j = 0; j < sizeof(iv); j++) {
+        //     printf("%02X", iv[j]);
+        // }
         aes_init(&ctx, key, iv);
         aes_xcrypt(&ctx, data, data_size);
     }
 
+    // =====　測定終了　=====
     double end = get_time_sec();
 
     double total_time = end - start;
