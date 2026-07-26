@@ -13,6 +13,29 @@ typedef struct AES_ctx_tiny {
 typedef void (*AES_INIT)(AES_ctx_tiny*, const uint8_t*, const uint8_t*);
 typedef void (*AES_XCRYPT)(AES_ctx_tiny*, uint8_t*, size_t);
 
+
+static AES_INIT load_aes_init(HMODULE h)
+{
+    union {
+        FARPROC fp;
+        AES_INIT fn;
+    } u;
+
+    u.fp = GetProcAddress(h, "AES_init_ctx_iv");
+    return u.fn;
+}
+
+static AES_XCRYPT load_aes_xcrypt(HMODULE h)
+{
+    union {
+        FARPROC fp;
+        AES_XCRYPT fn;
+    } u;
+
+    u.fp = GetProcAddress(h, "AES_CTR_xcrypt_buffer");
+    return u.fn;
+}
+
 //-----------------------------------------------------------
 // 高精度タイマ
 //-----------------------------------------------------------
@@ -102,11 +125,8 @@ static double measure_speed_tiny(const char *dll_path,
         return -1.0;
     }
 
-    AES_INIT aes_init =
-        (AES_INIT)GetProcAddress(h, "AES_init_ctx_iv");
-
-    AES_XCRYPT aes_xcrypt =
-        (AES_XCRYPT)GetProcAddress(h, "AES_CTR_xcrypt_buffer");
+    AES_INIT aes_init = load_aes_init(h);
+    AES_XCRYPT aes_xcrypt = load_aes_xcrypt(h);
 
     if (!aes_init || !aes_xcrypt) {
         fprintf(stderr, "GetProcAddress failed\n");
@@ -149,7 +169,7 @@ static double measure_speed_tiny(const char *dll_path,
     double total_time = end - start;
 
     double throughput =
-        (data_size * 8.0 * ITERATIONS) /
+        ((double)data_size * 8.0 * ITERATIONS) /
         (1024.0 * 1024.0) /
         total_time;
 
@@ -174,6 +194,8 @@ static double measure_speed_tiny(const char *dll_path,
 int main(void)
 {
     const size_t sizes[] = {
+        256ULL,
+        512ULL,
         1024ULL,
         1024ULL * 1024ULL,
         10ULL * 1024ULL * 1024ULL
