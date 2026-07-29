@@ -17,6 +17,10 @@ typedef void (*AES_XCRYPT)(AES_ctx_tiny*, uint8_t*, size_t);
 
 static AES_INIT load_aes_init(HMODULE h)
 {
+    // AES_init_ctx_iv関数のアドレスを取得する
+    // unionを使って、FARPROC型の関数ポインタをAES_INIT型の関数ポインタに変換する
+    // FARPROC型の関数ポインタは、GetProcAddress関数が返す型であり、汎用的な関数ポインタ型である
+    // AES_INIT型の関数ポインタは、AES_init_ctx_iv関数の型であり、引数と戻り値の型が一致する必要がある
     union {
         FARPROC fp;
         AES_INIT fn;
@@ -28,6 +32,10 @@ static AES_INIT load_aes_init(HMODULE h)
 
 static AES_XCRYPT load_aes_xcrypt(HMODULE h)
 {
+    // AES_CTR_xcrypt_buffer関数のアドレスを取得する
+    // unionを使って、FARPROC型の関数ポインタをAES_XCRYPT型の関数ポインタに変換する
+    // FARPROC型の関数ポインタは、GetProcAddress関数が返す型であり、汎用的な関数ポインタ型である
+    // AES_XCRYPT型の関数ポインタは、AES_CTR_xcrypt_buffer関数の型であり、引数と戻り値の型が一致する必要がある
     union {
         FARPROC fp;
         AES_XCRYPT fn;
@@ -56,20 +64,34 @@ static double get_time_sec(void)
 //-----------------------------------------------------------
 // ページフォールト防止
 //-----------------------------------------------------------
+/**
+ * 仮想メモリ領域の全ページへ書き込み、初回アクセス時のページフォールトを
+ * あらかじめ発生させる。
+ *
+ * 多くのOSでは、確保したメモリに対応する物理ページは初回アクセス時に
+ * 割り当てられる（デマンドページング）。リアルタイム性が重要な処理の前に
+ * 本関数を呼び出すことで、実行中のページフォールトによる遅延を低減できる。
+ *
+ * この実装は Windows 専用であり、ページサイズの取得には GetSystemInfo()
+ * を使用する。
+ *
+ * 必要なヘッダ: windows.h
+ */
 static void touch_pages(uint8_t *p, size_t bytes)
 {
+    // システムのページサイズを取得する
     SYSTEM_INFO si;
     GetSystemInfo(&si);
-
     size_t page = si.dwPageSize;
 
+    // printf("Page Size : %zu bytes\n", page);
+    // 各ページへ書き込み、初回アクセス時のページフォールトを事前に発生させる
     for (size_t i = 0; i < bytes; i += page)
         p[i] = 0;
-
+    // bytes がページサイズの倍数でない場合でも、最後のページへアクセスする
     if (bytes)
         p[bytes - 1] = 0;
 }
-
 //-----------------------------------------------------------
 // CSV出力
 //-----------------------------------------------------------
@@ -153,6 +175,10 @@ static double measure_speed_tiny(const char *dll_path,
         return -1.0;
     }
     
+    // ベンチマーク用のデータバッファをページ境界で確保する。
+    // VirtualAlloc() を使用することでページ単位の管理が可能となり、
+    // touch_pages() による事前アクセスや VirtualLock() と組み合わせることで
+    // ページフォールトやページアウトによる測定誤差を低減できる。
     uint8_t *data =
         (uint8_t *)VirtualAlloc(NULL,
                                 data_size,
@@ -167,7 +193,11 @@ static double measure_speed_tiny(const char *dll_path,
         return -1.0;
     }
 
+    // 各ページへ事前にアクセスし、初回アクセス時のページフォールトをベンチマーク開始前に発生させる
     touch_pages(data, data_size);
+
+    // ページアウトによる遅延を抑えるため、確保したメモリをロックする
+    VirtualLock(data, data_size);
 
     printf("Data Size : %zu bytes\n", data_size);
 
