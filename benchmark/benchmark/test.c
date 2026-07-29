@@ -50,15 +50,24 @@ static AES_XCRYPT load_aes_xcrypt(HMODULE h)
 //-----------------------------------------------------------
 static double get_time_sec(void)
 {
+    // QueryPerformanceCounter() と QueryPerformanceFrequency() を使用して、高精度な時間計測を行う
     static LARGE_INTEGER freq = {0};
     LARGE_INTEGER counter;
-
+    // QueryPerformanceFrequency() は、パフォーマンスカウンタの周波数を取得する関数であり、1秒あたりのカウント数を返す
     if (freq.QuadPart == 0)
         QueryPerformanceFrequency(&freq);
-
+    // QueryPerformanceCounter() は、パフォーマンスカウンタの現在値を取得する関数であり、カウント数を返す
     QueryPerformanceCounter(&counter);
-
+    // パフォーマンスカウンタの現在値を周波数で割ることで、秒単位の時間を計算する
     return (double)counter.QuadPart / (double)freq.QuadPart;
+}
+static LARGE_INTEGER freq;
+
+static LARGE_INTEGER get_counter(void)
+{
+    LARGE_INTEGER c;
+    QueryPerformanceCounter(&c);
+    return c;
 }
 
 //-----------------------------------------------------------
@@ -202,7 +211,12 @@ static double measure_speed_tiny(const char *dll_path,
     printf("Data Size : %zu bytes\n", data_size);
 
     // =====　測定開始　=====
-    double start = get_time_sec();
+    // double start = get_time_sec();
+    if (!QueryPerformanceFrequency(&freq)) {
+        fprintf(stderr, "High resolution timer is not supported.\n");
+        return 1;
+    }
+    LARGE_INTEGER start = get_counter();
 
     // AES-CTR暗号化をITERATIONS回実行
     for (int i = 0; i < ITERATIONS; i++) {
@@ -227,9 +241,10 @@ static double measure_speed_tiny(const char *dll_path,
     }
 
     // =====　測定終了　=====
-    double end = get_time_sec();
+    // double end = get_time_sec();
+    LARGE_INTEGER end = get_counter();
 
-    double total_time = end - start;
+    double total_time = (double)(end.QuadPart - start.QuadPart) / (double)freq.QuadPart;
 
     double throughput =
         ((double)data_size * 8.0 * ITERATIONS) /
