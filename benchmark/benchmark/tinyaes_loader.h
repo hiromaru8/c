@@ -4,6 +4,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+
+/**
+ * @brief TinyAES ハンドル型
+ *
+ * @details
+ * TinyAES DLL のモジュールハンドルおよび取得済み API 関数ポインタを
+ * 内部に保持する不透明型（opaque type）。
+ *
+ * 呼び出し側は構造体の内容を直接参照せず、
+ * tinyaes_open() および tinyaes_close() を使用して管理する。
+ */
 typedef struct TinyAES TinyAES;
 
 /**
@@ -57,22 +68,75 @@ TinyAES *tinyaes_open(const char *dll_path);
 void tinyaes_close(TinyAES *aes);
 
 /**
- * @brief TinyAES のコンテキスト
+ * @brief TinyAES 暗号コンテキスト
  *
- * TinyAES ライブラリが要求するコンテキスト構造体。
- * DLL の公開 API と互換性を保つため、本モジュール内でも同じ定義を使用する。
+ * @details
+ * TinyAES ライブラリが使用する AES コンテキスト。
+ *
+ * DLL 側で定義されている AES_ctx 構造体とのバイナリ互換性を
+ * 維持するため、同一レイアウトで定義している。
+ *
+ * @note
+ * 構造体メンバは TinyAES DLL の仕様に依存するため、
+ * 変更する場合は DLL 側との互換性を確認すること。
  */
 typedef struct AES_ctx_tiny {
     uint8_t RoundKey[240];
     uint8_t Iv[16];
 } AES_ctx_tiny;
 
+/**
+ * @brief AES-CTR 暗号化用コンテキストを初期化する。
+ *
+ * @details
+ * 指定された鍵と IV を使用して TinyAES の暗号化コンテキストを
+ * 初期化する。
+ *
+ * @param[in] aes
+ * TinyAES ハンドル。
+ *
+ * @param[out] ctx
+ * 初期化対象の AES コンテキスト。
+ *
+ * @param[in] key
+ * AES 鍵。
+ *
+ * @param[in] iv
+ * 初期化ベクトル。
+ *
+ * @note
+ * key および iv のサイズは TinyAES DLL の仕様に従うこと。
+ */
 void tinyaes_init(
     TinyAES *aes,
     AES_ctx_tiny *ctx,
     const uint8_t *key,
     const uint8_t *iv);
 
+/**
+ * @brief AES-CTR 暗号化／復号を実行する。
+ *
+ * @details
+ * TinyAES の AES_CTR_xcrypt_buffer() を呼び出し、
+ * 指定されたバッファを暗号化または復号する。
+ *
+ * AES-CTR モードでは暗号化と復号は同一処理である。
+ *
+ * @param[in] aes
+ * TinyAES ハンドル。
+ *
+ * @param[in,out] ctx
+ * AES コンテキスト。
+ *
+ * @param[in,out] buf
+ * 暗号化または復号対象のデータバッファ。
+ *
+ * @param[in] length
+ * 処理するデータサイズ（byte）。
+ *
+ * @note
+ * 処理後、buf の内容は暗号文または復号文に置換される。
+ */
 void tinyaes_xcrypt(
     TinyAES *aes,
     AES_ctx_tiny *ctx,

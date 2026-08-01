@@ -6,9 +6,7 @@
 
 #include "tinyaes_loader.h"
 
-#define ITERATIONS 1000
-
-
+#define DLL_NAME "libtiny_aes.dll"
 
 //-----------------------------------------------------------
 // 高精度タイマ
@@ -49,7 +47,7 @@ static void touch_pages(uint8_t *p, size_t bytes)
     // 各ページへ書き込み、初回アクセス時のページフォールトを事前に発生させる
     for (size_t i = 0; i < bytes; i += page)
         p[i] = 0;
-    // bytes がページサイズの倍数でない場合でも、最後のページへアクセスする
+    // bytes がページサイズの倍数でない場合でも、最後のページへ書き込みする
     if (bytes)
         p[bytes - 1] = 0;
 }
@@ -101,25 +99,17 @@ static void write_csv(const char *filename,
 //-----------------------------------------------------------
 // tiny_aes ベンチマーク
 //-----------------------------------------------------------
-static int measure_speed_tiny(const char *dll_path,
-                                 size_t data_size,
-                                 int iterations)
+static int measure_speed_tiny(TinyAES *aes,
+                              size_t data_size,
+                              int iterations)
 {
-    int ret = 1;
-    uint8_t *data = NULL;
-    // int locked = 0;     // VirtualLock() でメモリをロックしたかどうかのフラグ
-    NTSTATUS status = STATUS_SUCCESS;
-    TinyAES *aes = tinyaes_open(dll_path);
-    if (!aes) {
-        return 1;
-    }
-
-
-    AES_ctx_tiny ctx;
-    // ベンチマークのため固定キーを使用
-    const uint8_t key[32] = {0};
-    // IVは毎回ランダムに生成するため、ここでは初期化しておく
-    uint8_t iv[16];
+    int ret = 1;                    // 戻り値 0:成功, 1:失敗
+    uint8_t *data = NULL;           // ベンチマーク用のデータバッファ
+    // int locked = 0;              // VirtualLock() でメモリをロックしたかどうかのフラグ
+    NTSTATUS status;                // BCryptGenRandom() の戻り値を受け取る変数
+    AES_ctx_tiny ctx;               // TinyAES のコンテキスト構造体
+    const uint8_t key[32] = {0};    // ベンチマークのため固定キーを使用
+    uint8_t iv[16];                 // IVは毎回ランダムに生成するため、ここでは初期化しておく
     
 
     // ベンチマーク用のデータバッファをページ境界で確保する。
@@ -138,11 +128,13 @@ static int measure_speed_tiny(const char *dll_path,
         goto cleanup;
     }
 
-    // 各ページへ事前にアクセスし、初回アクセス時のページフォールトをベンチマーク開始前に発生させる
+    // // 各ページへ書き込みを行い、初回アクセス時のページフォールトをベンチマーク開始前に発生させる
     touch_pages(data, data_size);
 
-    // VirtualLock()はサイズが大きいと失敗する場合があるため、コメントアウトしている。
-    //// ページアウトによる遅延を抑えるため、確保したメモリをロックする
+    /**
+     * VirtualLock()はサイズが大きいと失敗する場合があるため、コメントアウトしている。
+     * ページアウトによる遅延を抑えるため、確保したメモリをロックする
+     */
     // if (!VirtualLock(data, data_size)) {
     //     fprintf(stderr,
     //         "VirtualLock failed (%lu)\n",
@@ -165,7 +157,9 @@ static int measure_speed_tiny(const char *dll_path,
             BCRYPT_USE_SYSTEM_PREFERRED_RNG);
         if (status != STATUS_SUCCESS)
         {
-            printf("BCryptGenRandom failed\n");
+            fprintf(stderr,
+            "BCryptGenRandom failed (0x%08X)\n",
+            (unsigned)status);
             goto cleanup;
         }
         // printf("  Iteration %d: iv = ", i + 1);
@@ -174,6 +168,7 @@ static int measure_speed_tiny(const char *dll_path,
         // }
         tinyaes_init(aes, &ctx, key, iv);
         tinyaes_xcrypt(aes, &ctx, data, data_size);
+        // printf("  data[0] = %02X, data[%zu] = %02X\n", data[0], data_size - 1, data[data_size - 1]);
     }
 
     // =====　測定終了　=====
@@ -199,7 +194,6 @@ static int measure_speed_tiny(const char *dll_path,
 
 
     ret = 0;
-    goto cleanup;
 
 cleanup:
     
@@ -210,9 +204,6 @@ cleanup:
     if (data) 
         VirtualFree(data, 0, MEM_RELEASE);
 
-    if (aes)
-        tinyaes_close(aes);
-
     return ret;
 
 }
@@ -222,17 +213,24 @@ cleanup:
 //-----------------------------------------------------------
 int main(int argc, char *argv[])
 {
+    int ret = 0;
     int iterations = 1000;
     if (argc >= 2) {
-        iterations = atoi(argv[1]);
-    }
-
-    if (iterations <= 0) {
-        fprintf(stderr,
+        char *end; // 変換できなかった文字のポインタを受け取るための変数
+        
+        // 文字列を整数に変換する。変換できなかった場合はエラーとする。
+        long v = strtol(argv[1], &end, 10);
+        if (*end != '\0' || v <= 0 || v > INT_MAX) {
+            fprintf(stderr,
                 "Usage: %s [iterations]\n",
                 argv[0]);
-        return 1;
+            ret = 1;
+            return ret;
+        }
+        // 変換結果を iterations に代入する。
+        iterations = (int)v;
     }
+
 
     const size_t sizes[] = {
         16ULL,
@@ -244,24 +242,37 @@ int main(int argc, char *argv[])
         10ULL * 1024ULL * 1024ULL
     };
 
+    const char *dll_path = DLL_NAME;
+    TinyAES *aes = tinyaes_open(dll_path);
+    if (!aes) {
+        ret = 1;
+        goto cleanup;
+    }
+
     printf("======================\n");
     printf("tiny-AES CTR Benchmark\n");
-    printf("======================\n");
     if (!QueryPerformanceFrequency(&freq)) {
         fprintf(stderr, "High resolution timer is not supported.\n");
-        return 1;
+            ret = 1;
+            goto cleanup;
     }
-    printf("Frequency : %lld Hz\n", freq.QuadPart);
+    printf("Frequency  : %lld Hz\n", freq.QuadPart);
     printf("Iterations : %d\n", iterations);
+    printf("DLL Path   : %s\n", dll_path);
+    printf("======================\n");
 
 
     for (int i = 0; i < (int)(sizeof(sizes) / sizeof(sizes[0])); i++) {
         printf("Data Size : %zu bytes\n", sizes[i]);
-        if (measure_speed_tiny("libtiny_aes.dll", sizes[i], iterations) != 0) {
+        if (measure_speed_tiny(aes, sizes[i], iterations) != 0) {
             fprintf(stderr, "Failed to measure speed for size %zu\n", sizes[i]);
-            return 1;
+            ret = 1;
+            goto cleanup;
         }
     }
 
-    return 0;
+cleanup:
+    if (aes)
+        tinyaes_close(aes);
+    return ret;
 }

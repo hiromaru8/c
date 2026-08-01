@@ -137,21 +137,7 @@ static AES_XCRYPT load_aes_xcrypt(HMODULE module)
     return u.fn;
 }
 
-/**
- * @brief TinyAES DLL をロードする。
- *
- * DLL をロードし、必要な関数アドレスを取得する。
- *
- * @param[in] dll_path
- * ロードする DLL のパス
- *
- * @return
- * 成功時は TinyAES ハンドル、
- * 失敗時は NULL。
- *
- * @note
- * エラー発生時は取得済みリソースをすべて解放する。
- */
+
 TinyAES *tinyaes_open(const char *dll_path)
 {
     TinyAES *aes = NULL;
@@ -200,15 +186,6 @@ cleanup:
     return NULL;
 }
 
-/**
- * @brief TinyAES DLL をアンロードする。
- *
- * tinyaes_open() で取得したハンドルを解放する。
- *
- * @param[in] aes
- * TinyAES ハンドル。
- * NULL の場合は何もしない。
- */
 void tinyaes_close(TinyAES *aes)
 {
     if (!aes)
@@ -219,8 +196,6 @@ void tinyaes_close(TinyAES *aes)
 
     free(aes);
 }
-
-
 
 void tinyaes_init(
     TinyAES *aes,
