@@ -1,24 +1,32 @@
 /**
  * @file tinyaes_loader.c
- * @brief TinyAES DLL の動的ロードモジュール
+ * @brief TinyAES DLL 動的ロード実装
  *
  * @details
- * Windows の LoadLibrary() および GetProcAddress() を利用して
- * TinyAES DLL をロードし、DLL が提供する API を取得する。
+ * TinyAES DLL を実行時にロードし、
+ * DLL 内の AES API 関数アドレスを取得する実装を提供する。
  *
- * DLL のロードおよび関数アドレス取得の詳細を本モジュールへ隠蔽することで、
- * 呼び出し側は Windows API を意識することなく TinyAES を利用できる。
+ * 本モジュールでは Windows API の
+ *
+ * - LoadLibrary()
+ * - GetProcAddress()
+ * - FreeLibrary()
+ *
+ * を使用して DLL 管理を行う。
+ *
+ * DLL 依存部分を本ファイル内に閉じ込めることで、
+ * アプリケーション側では TinyAES ハンドルを利用した
+ * 抽象化された AES API 呼び出しが可能となる。
  *
  * @note
  * Windows 専用実装。
+ *
+ * @see tinyaes_loader.h
  */
-
-#include "tinyaes_loader.h"
-
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <windows.h>
+#include "tinyaes_loader.h"
 
 
 

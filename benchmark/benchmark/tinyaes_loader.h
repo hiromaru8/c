@@ -1,3 +1,29 @@
+/**
+ * @file tinyaes_loader.h
+ * @brief TinyAES DLL ローダ用 API 定義
+ *
+ * @details
+ * 本ヘッダは、TinyAES を DLL として動的利用するための
+ * ローダ API を提供する。
+ *
+ * 本モジュールでは、Windows の DLL 動的ロード機能
+ * (LoadLibrary / GetProcAddress) を利用し、
+ * TinyAES DLL が提供する AES 初期化処理および
+ * AES-CTR 暗号化処理を呼び出すためのインターフェースを提供する。
+ *
+ * 呼び出し側は DLL のロード処理や関数ポインタ管理を意識することなく、
+ * TinyAES ハンドルを介して AES 処理を利用できる。
+ *
+ * @note
+ * - Windows 専用実装。
+ * - 本モジュール利用後は tinyaes_close() により
+ *   必ずリソースを解放すること。
+ *
+ * @see tinyaes_open()
+ * @see tinyaes_close()
+ * @see tinyaes_init()
+ * @see tinyaes_xcrypt()
+ */
 #ifndef TINYAES_LOADER_H
 #define TINYAES_LOADER_H
 
@@ -68,17 +94,16 @@ TinyAES *tinyaes_open(const char *dll_path);
 void tinyaes_close(TinyAES *aes);
 
 /**
- * @brief TinyAES 暗号コンテキスト
+ * @brief TinyAES AES コンテキスト
  *
  * @details
- * TinyAES ライブラリが使用する AES コンテキスト。
+ * TinyAES DLL の AES API と互換性を持つコンテキスト構造体。
  *
- * DLL 側で定義されている AES_ctx 構造体とのバイナリ互換性を
- * 維持するため、同一レイアウトで定義している。
+ * AES_init_ctx_iv() により初期化され、
+ * AES_CTR_xcrypt_buffer() の状態保持に使用される。
  *
  * @note
- * 構造体メンバは TinyAES DLL の仕様に依存するため、
- * 変更する場合は DLL 側との互換性を確認すること。
+ * DLL 側の定義変更時には、本構造体も一致させる必要がある。
  */
 typedef struct AES_ctx_tiny {
     uint8_t RoundKey[240];
