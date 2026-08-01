@@ -56,7 +56,10 @@ set_target_properties(aes_ni_test PROPERTIES OUTPUT_NAME "aes_ni_test")
 # ----------------------------
 # benchmark/test.exe
 # ----------------------------
-add_executable(benchmark_test benchmark/test.c)
+add_executable(benchmark_test 
+                benchmark/benchmark.c
+                benchmark/tinyaes_loader.c
+            )
 target_include_directories(benchmark_test PRIVATE tiny_aes_dll/include ttable_aes_dll/include)
 target_link_libraries(benchmark_test PRIVATE
     bcrypt

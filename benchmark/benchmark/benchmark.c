@@ -3,47 +3,12 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <ntstatus.h>
+
+#include "tinyaes_loader.h"
+
 #define ITERATIONS 1000
 
-// ---- tiny_aes ----
-typedef struct AES_ctx_tiny {
-    uint8_t RoundKey[240];
-    uint8_t Iv[16];
-} AES_ctx_tiny;
 
-typedef void (*AES_INIT)(AES_ctx_tiny*, const uint8_t*, const uint8_t*);
-typedef void (*AES_XCRYPT)(AES_ctx_tiny*, uint8_t*, size_t);
-
-
-static AES_INIT load_aes_init(HMODULE h)
-{
-    // AES_init_ctx_iv関数のアドレスを取得する
-    // unionを使って、FARPROC型の関数ポインタをAES_INIT型の関数ポインタに変換する
-    // FARPROC型の関数ポインタは、GetProcAddress関数が返す型であり、汎用的な関数ポインタ型である
-    // AES_INIT型の関数ポインタは、AES_init_ctx_iv関数の型であり、引数と戻り値の型が一致する必要がある
-    union {
-        FARPROC fp;
-        AES_INIT fn;
-    } u;
-
-    u.fp = GetProcAddress(h, "AES_init_ctx_iv");
-    return u.fn;
-}
-
-static AES_XCRYPT load_aes_xcrypt(HMODULE h)
-{
-    // AES_CTR_xcrypt_buffer関数のアドレスを取得する
-    // unionを使って、FARPROC型の関数ポインタをAES_XCRYPT型の関数ポインタに変換する
-    // FARPROC型の関数ポインタは、GetProcAddress関数が返す型であり、汎用的な関数ポインタ型である
-    // AES_XCRYPT型の関数ポインタは、AES_CTR_xcrypt_buffer関数の型であり、引数と戻り値の型が一致する必要がある
-    union {
-        FARPROC fp;
-        AES_XCRYPT fn;
-    } u;
-
-    u.fp = GetProcAddress(h, "AES_CTR_xcrypt_buffer");
-    return u.fn;
-}
 
 //-----------------------------------------------------------
 // 高精度タイマ
@@ -88,11 +53,14 @@ static void touch_pages(uint8_t *p, size_t bytes)
     if (bytes)
         p[bytes - 1] = 0;
 }
+
+
 //-----------------------------------------------------------
 // CSV出力
 //-----------------------------------------------------------
 static void write_csv(const char *filename,
                       size_t data_size,
+                      int iterations,
                       double total_time,
                       double throughput)
 {
@@ -122,9 +90,9 @@ static void write_csv(const char *filename,
     fprintf(fp,
             "%zu,%d,%.8f,%.8f,%.3f\n",
             data_size,
-            ITERATIONS,
+            iterations,
             total_time,
-            total_time / ITERATIONS,
+            total_time / iterations,
             throughput);
 
     fclose(fp);
@@ -134,84 +102,68 @@ static void write_csv(const char *filename,
 // tiny_aes ベンチマーク
 //-----------------------------------------------------------
 static int measure_speed_tiny(const char *dll_path,
-                                 size_t data_size)
+                                 size_t data_size,
+                                 int iterations)
 {
-    HMODULE h = LoadLibraryA(dll_path);
-    if (!h) {
-        fprintf(stderr,
-                "LoadLibrary failed (%lu)\n",
-                GetLastError());
-        return -1.0;
+    int ret = 1;
+    uint8_t *data = NULL;
+    // int locked = 0;     // VirtualLock() でメモリをロックしたかどうかのフラグ
+    NTSTATUS status = STATUS_SUCCESS;
+    TinyAES *aes = tinyaes_open(dll_path);
+    if (!aes) {
+        return 1;
     }
 
-    AES_INIT aes_init = load_aes_init(h);
-    AES_XCRYPT aes_xcrypt = load_aes_xcrypt(h);
-
-    if (!aes_init || !aes_xcrypt) {
-        fprintf(stderr, "GetProcAddress failed\n");
-        FreeLibrary(h);
-        return -1.0;
-    }
 
     AES_ctx_tiny ctx;
     // ベンチマークのため固定キーを使用
-    uint8_t key[32] = {0};
-    // ベンチマークのため固定IVを使用
-    uint8_t iv[16]  = {0};
+    const uint8_t key[32] = {0};
+    // IVは毎回ランダムに生成するため、ここでは初期化しておく
+    uint8_t iv[16];
     
-    unsigned char random[32];
-    // BCryptGenRandom() を使用して、乱数を生成できるか確認する
-    if (BCryptGenRandom(
-            NULL,
-            iv,
-            sizeof(iv),
-            BCRYPT_USE_SYSTEM_PREFERRED_RNG) < 0)
-    {
-        printf("BCryptGenRandom failed\n");
-        goto cleanup;
-    }
 
     // ベンチマーク用のデータバッファをページ境界で確保する。
     // VirtualAlloc() を使用することでページ単位の管理が可能となり、
     // touch_pages() による事前アクセスや VirtualLock() と組み合わせることで
     // ページフォールトやページアウトによる測定誤差を低減できる。
-    uint8_t *data =
-        (uint8_t *)VirtualAlloc(NULL,
-                                data_size,
-                                MEM_RESERVE | MEM_COMMIT,
-                                PAGE_READWRITE);
+    data = VirtualAlloc(NULL,
+                        data_size,
+                        MEM_RESERVE | MEM_COMMIT,
+                        PAGE_READWRITE);
 
     if (!data) {
         fprintf(stderr,
                 "VirtualAlloc failed (%lu)\n",
                 GetLastError());
-        FreeLibrary(h);
-        return -1.0;
+        goto cleanup;
     }
 
     // 各ページへ事前にアクセスし、初回アクセス時のページフォールトをベンチマーク開始前に発生させる
     touch_pages(data, data_size);
 
-    // ページアウトによる遅延を抑えるため、確保したメモリをロックする
-    if (!VirtualLock(data, data_size)) {
-        fprintf(stderr,
-            "VirtualLock failed (%lu)\n",
-            GetLastError());
-        goto cleanup;
-    }
-    printf("Data Size : %zu bytes\n", data_size);
+    // VirtualLock()はサイズが大きいと失敗する場合があるため、コメントアウトしている。
+    //// ページアウトによる遅延を抑えるため、確保したメモリをロックする
+    // if (!VirtualLock(data, data_size)) {
+    //     fprintf(stderr,
+    //         "VirtualLock failed (%lu)\n",
+    //         GetLastError());
+    //     goto cleanup;
+    // }
+    // locked = 1;
+
 
     // =====　測定開始　=====
     LARGE_INTEGER start = get_counter();
 
-    // AES-CTR暗号化をITERATIONS回実行
-    for (int i = 0; i < ITERATIONS; i++) {
+    // AES-CTR暗号化をiterations回実行
+    for (int i = 0; i < iterations; i++) {
         // ivは乱数とする
-        if (BCryptGenRandom(
-                NULL,
-                iv,
-                sizeof(iv),
-                BCRYPT_USE_SYSTEM_PREFERRED_RNG) < 0)
+        status = BCryptGenRandom(
+            NULL,
+            iv,
+            sizeof(iv),
+            BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+        if (status != STATUS_SUCCESS)
         {
             printf("BCryptGenRandom failed\n");
             goto cleanup;
@@ -220,8 +172,8 @@ static int measure_speed_tiny(const char *dll_path,
         // for (int j = 0; j < sizeof(iv); j++) {
         //     printf("%02X", iv[j]);
         // }
-        aes_init(&ctx, key, iv);
-        aes_xcrypt(&ctx, data, data_size);
+        tinyaes_init(aes, &ctx, key, iv);
+        tinyaes_xcrypt(aes, &ctx, data, data_size);
     }
 
     // =====　測定終了　=====
@@ -230,44 +182,58 @@ static int measure_speed_tiny(const char *dll_path,
     double total_time = (double)elapsed / (double)freq.QuadPart;
 
     double throughput =
-        ((double)data_size * 8.0 * ITERATIONS) /
+        ((double)data_size * 8.0 * iterations) /
         (1024.0 * 1024.0) /
         total_time;
 
     printf("  elapsed    : %lld ticks\n", elapsed);
     printf("  Total Time : %.8f sec\n", total_time);
-    printf("  Average    : %.8f sec\n", total_time / ITERATIONS);
+    printf("  Average    : %.8f sec\n", total_time / iterations);
     printf("  Throughput : %.3f MiBit/s\n\n", throughput);
 
     write_csv("tiny_aes.csv",
               data_size,
+              iterations,
               total_time,
               throughput);
 
-    VirtualUnlock(data, data_size);
-    VirtualFree(data, 0, MEM_RELEASE);
-    FreeLibrary(h);
 
-    return 0;
+    ret = 0;
+    goto cleanup;
 
 cleanup:
-    if (data) {
-        VirtualUnlock(data, data_size);
-        VirtualFree(data,0,MEM_RELEASE);
-    }
+    
+    // VirtualLock()を使用してメモリをロックしていた場合は、アンロックする
+    // if (locked)
+    //     VirtualUnlock(data, data_size);
 
-    if (h)
-        FreeLibrary(h);
+    if (data) 
+        VirtualFree(data, 0, MEM_RELEASE);
 
-    return 1;
+    if (aes)
+        tinyaes_close(aes);
+
+    return ret;
 
 }
 
 //-----------------------------------------------------------
 // main
 //-----------------------------------------------------------
-int main(void)
+int main(int argc, char *argv[])
 {
+    int iterations = 1000;
+    if (argc >= 2) {
+        iterations = atoi(argv[1]);
+    }
+
+    if (iterations <= 0) {
+        fprintf(stderr,
+                "Usage: %s [iterations]\n",
+                argv[0]);
+        return 1;
+    }
+
     const size_t sizes[] = {
         16ULL,
         32ULL,
@@ -278,15 +244,23 @@ int main(void)
         10ULL * 1024ULL * 1024ULL
     };
 
+    printf("======================\n");
     printf("tiny-AES CTR Benchmark\n");
     printf("======================\n");
     if (!QueryPerformanceFrequency(&freq)) {
         fprintf(stderr, "High resolution timer is not supported.\n");
+        return 1;
     }
     printf("Frequency : %lld Hz\n", freq.QuadPart);
+    printf("Iterations : %d\n", iterations);
+
 
     for (int i = 0; i < (int)(sizeof(sizes) / sizeof(sizes[0])); i++) {
-        measure_speed_tiny("libtiny_aes.dll", sizes[i]);
+        printf("Data Size : %zu bytes\n", sizes[i]);
+        if (measure_speed_tiny("libtiny_aes.dll", sizes[i], iterations) != 0) {
+            fprintf(stderr, "Failed to measure speed for size %zu\n", sizes[i]);
+            return 1;
+        }
     }
 
     return 0;
