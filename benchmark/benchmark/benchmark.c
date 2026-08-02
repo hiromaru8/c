@@ -8,11 +8,22 @@
 
 #define DLL_NAME "libtiny_aes.dll"
 
-//-----------------------------------------------------------
-// 高精度タイマ
-//-----------------------------------------------------------
-static LARGE_INTEGER freq;
 
+/**
+ * GROVAL VARIABLES
+ */
+static LARGE_INTEGER freq;  // 高精度パフォーマンスカウンタの周波数を格納する変数
+
+/**
+ * @brief 現在の高精度パフォーマンスカウンタ値を取得する。
+ *
+ * @details
+ * QueryPerformanceCounter() を呼び出し、
+ * 高分解能タイマの現在値を返す。
+ *
+ * @return
+ * 現在のパフォーマンスカウンタ値。
+ */
 static LARGE_INTEGER get_counter(void)
 {
     LARGE_INTEGER c;
@@ -20,21 +31,27 @@ static LARGE_INTEGER get_counter(void)
     return c;
 }
 
-//-----------------------------------------------------------
-// ページフォールト防止
-//-----------------------------------------------------------
 /**
- * 仮想メモリ領域の全ページへ書き込み、初回アクセス時のページフォールトを
- * あらかじめ発生させる。
+ * @brief メモリ領域の全ページへアクセスする。
  *
- * 多くのOSでは、確保したメモリに対応する物理ページは初回アクセス時に
- * 割り当てられる（デマンドページング）。リアルタイム性が重要な処理の前に
- * 本関数を呼び出すことで、実行中のページフォールトによる遅延を低減できる。
+ * @details
+ * 指定したメモリ領域の各ページへ書き込みを行い、
+ * デマンドページングによる初回ページフォールトを
+ * ベンチマーク開始前に発生させる。
  *
- * この実装は Windows 専用であり、ページサイズの取得には GetSystemInfo()
- * を使用する。
+ * これにより、測定中に発生するページフォールトの影響を
+ * 低減できる。
  *
- * 必要なヘッダ: windows.h
+ * Windows の GetSystemInfo() を使用してページサイズを取得する。
+ *
+ * @param[in,out] p
+ * 対象となるメモリ領域。
+ *
+ * @param[in] bytes
+ * メモリ領域のサイズ（Byte）。
+ *
+ * @note
+ * Windows 専用実装。
  */
 static void touch_pages(uint8_t *p, size_t bytes)
 {
@@ -53,14 +70,35 @@ static void touch_pages(uint8_t *p, size_t bytes)
 }
 
 
-//-----------------------------------------------------------
-// CSV出力
-//-----------------------------------------------------------
-static void write_csv(const char *filename,
-                      size_t data_size,
-                      int iterations,
-                      double total_time,
-                      double throughput)
+/**
+ * @brief ベンチマーク結果を CSV ファイルへ出力する。
+ *
+ * @details
+ * 指定した CSV ファイルへ測定結果を追記する。
+ * ファイルが存在しない場合、または空ファイルの場合は
+ * ヘッダ行を出力してからデータを書き込む。
+ *
+ * @param[in] filename
+ * 出力する CSV ファイル名。
+ *
+ * @param[in] data_size
+ * ベンチマーク対象データサイズ（Byte）。
+ *
+ * @param[in] iterations
+ * ベンチマーク実行回数。
+ *
+ * @param[in] total_time
+ * 総実行時間（秒）。
+ *
+ * @param[in] throughput
+ * スループット（MiBit/s）。
+ */
+static void write_csv(
+    const char *filename,
+    size_t data_size,
+    int iterations,
+    double total_time,
+    double throughput)
 {
     int write_header = 0;
 
@@ -96,12 +134,40 @@ static void write_csv(const char *filename,
     fclose(fp);
 }
 
-//-----------------------------------------------------------
-// tiny_aes ベンチマーク
-//-----------------------------------------------------------
-static int measure_speed_tiny(TinyAES *aes,
-                              size_t data_size,
-                              int iterations)
+/**
+ * @brief TinyAES の AES-CTR 暗号化性能を測定する。
+ *
+ * @details
+ * 指定サイズのデータに対して AES-CTR 暗号化を
+ * 指定回数繰り返し実行し、
+ * 総実行時間およびスループットを測定する。
+ *
+ * 測定結果は標準出力へ表示するとともに、
+ * CSV ファイルへ追記する。
+ *
+ * @param[in] aes
+ * TinyAES ハンドル。
+ *
+ * @param[in] data_size
+ * ベンチマーク対象データサイズ（Byte）。
+ *
+ * @param[in] iterations
+ * 暗号化の実行回数。
+ *
+ * @retval 0
+ * 正常終了。
+ *
+ * @retval 1
+ * エラー。
+ *
+ * @note
+ * ベンチマーク用に AES-256 の固定キーを使用し、
+ * IV は各反復ごとに BCryptGenRandom() により生成する。
+ */
+static int measure_speed_tiny(
+    TinyAES *aes,
+    size_t data_size,
+    int iterations)
 {
     int ret = 1;                    // 戻り値 0:成功, 1:失敗
     uint8_t *data = NULL;           // ベンチマーク用のデータバッファ
@@ -208,9 +274,27 @@ cleanup:
 
 }
 
-//-----------------------------------------------------------
-// main
-//-----------------------------------------------------------
+/**
+ * @brief TinyAES ベンチマークプログラムのエントリポイント。
+ *
+ * @details
+ * コマンドライン引数からベンチマーク回数を取得し、
+ * TinyAES DLL をロードして複数サイズのデータについて
+ * AES-CTR 暗号化性能を測定する。
+ *
+ * @param[in] argc
+ * コマンドライン引数の個数。
+ *
+ * @param[in] argv
+ * コマンドライン引数。
+ * argv[1] にベンチマーク回数を指定できる。
+ *
+ * @retval 0
+ * 正常終了。
+ *
+ * @retval 1
+ * エラー終了。
+ */
 int main(int argc, char *argv[])
 {
     int ret = 0;
