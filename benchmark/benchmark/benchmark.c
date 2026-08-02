@@ -212,15 +212,16 @@ static int measure_speed_tiny(
     uint8_t iv[16];                 // IVは毎回ランダムに生成するため、ここでは初期化しておく
     
 
-    // ベンチマーク用のデータバッファをページ境界で確保する。
-    // VirtualAlloc() を使用することでページ単位の管理が可能となり、
-    // touch_pages() による事前アクセスや VirtualLock() と組み合わせることで
-    // ページフォールトやページアウトによる測定誤差を低減できる。
+    /**
+     * ベンチマーク用のデータバッファをページ境界で確保する。
+     *   VirtualAlloc() を使用することでページ単位の管理が可能となり、
+     *   touch_pages() による事前アクセスや VirtualLock() と組み合わせることで
+     *   ページフォールトやページアウトによる測定誤差を低減できる。
+     */
     data = VirtualAlloc(NULL,
                         data_size,
                         MEM_RESERVE | MEM_COMMIT,
                         PAGE_READWRITE);
-
     if (!data) {
         fprintf(stderr,
                 "VirtualAlloc failed (%lu)\n",
@@ -244,7 +245,10 @@ static int measure_speed_tiny(
     // locked = 1;
 
 
-    // =====　測定開始　=====
+    /**
+     * ==========　測定開始　=========
+     * 
+     */
     LARGE_INTEGER start = get_counter();
 
     // AES-CTR暗号化をiterations回実行
@@ -266,16 +270,27 @@ static int measure_speed_tiny(
         // for (int j = 0; j < sizeof(iv); j++) {
         //     printf("%02X", iv[j]);
         // }
+
+        /* AES-CTR 暗号化の初期化 */
         tinyaes_init(aes, &ctx, key, iv);
+        /* AES-CTR 暗号化を実行 */
         tinyaes_xcrypt(aes, &ctx, data, data_size);
         // printf("  data[0] = %02X, data[%zu] = %02X\n", data[0], data_size - 1, data[data_size - 1]);
     }
-
-    // =====　測定終了　=====
+    /**
+     * ==========　測定終了　=========
+     */ 
     LARGE_INTEGER end = get_counter();
+
+
+    /**
+     * 測定結果を計算する。
+     * elapsed : 総実行時間（パフォーマンスカウンタのティック数）
+     * total_time : 総実行時間（秒）
+     * throughput : スループット（MiBit/s）
+     */
     int64_t elapsed = end.QuadPart - start.QuadPart;
     double total_time = (double)elapsed / (double)freq.QuadPart;
-
     double throughput =
         ((double)data_size * 8.0 * iterations) /
         (1024.0 * 1024.0) /
@@ -297,10 +312,15 @@ static int measure_speed_tiny(
 
 cleanup:
     
-    // VirtualLock()を使用してメモリをロックしていた場合は、アンロックする
+    /**
+     * VirtualLock()を使用してメモリをロックしていた場合は、アンロックする
+     */
     // if (locked)
     //     VirtualUnlock(data, data_size);
 
+    /**
+     * VirtualAlloc()で確保したメモリを解放する
+     */
     if (data) 
         VirtualFree(data, 0, MEM_RELEASE);
 
@@ -333,6 +353,10 @@ int main(int argc, char *argv[])
 {
     int ret = 0;
     int iterations = 1000;
+ 
+    /**
+     * コマンドライン引数からベンチマークのiterations回数を取得する。
+     */
     if (argc >= 2) {
         char *end; // 変換できなかった文字のポインタを受け取るための変数
         
@@ -349,7 +373,9 @@ int main(int argc, char *argv[])
         iterations = (int)v;
     }
 
-
+    /**
+     * 測定対象のデータサイズを配列で定義する。
+     */
     const size_t sizes[] = {
         16ULL,
         32ULL,
@@ -360,6 +386,9 @@ int main(int argc, char *argv[])
         10ULL * 1024ULL * 1024ULL
     };
 
+    /**
+     * TinyAES DLL をロードする。
+     */
     const char *dll_path = DLL_NAME;
     TinyAES *aes = tinyaes_open(dll_path);
     if (!aes) {
@@ -367,19 +396,28 @@ int main(int argc, char *argv[])
         goto cleanup;
     }
 
-    printf("======================\n");
-    printf("tiny-AES CTR Benchmark\n");
+    /**
+     * 高精度パフォーマンスカウンタの周波数を取得する。
+     */
     if (!QueryPerformanceFrequency(&freq)) {
         fprintf(stderr, "High resolution timer is not supported.\n");
             ret = 1;
             goto cleanup;
     }
+
+    /**
+     * ベンチマークの情報を表示する。
+     */
+    printf("======================\n");
+    printf("tiny-AES CTR Benchmark\n");
     printf("Frequency  : %lld Hz\n", freq.QuadPart);
     printf("Iterations : %d\n", iterations);
     printf("DLL Path   : %s\n", dll_path);
     printf("======================\n");
 
-
+    /**
+     * 各データサイズについてベンチマークを実行する。
+     */
     for (int i = 0; i < (int)(sizeof(sizes) / sizeof(sizes[0])); i++) {
         printf("Data Size : %zu bytes\n", sizes[i]);
         if (measure_speed_tiny(aes, sizes[i], iterations) != 0) {
@@ -390,6 +428,9 @@ int main(int argc, char *argv[])
     }
 
 cleanup:
+    /**
+     * TinyAES DLL をアンロードする。
+     */
     if (aes)
         tinyaes_close(aes);
     return ret;
