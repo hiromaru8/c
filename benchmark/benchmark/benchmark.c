@@ -1,3 +1,37 @@
+/**
+ * @file benchmark.c
+ * @brief TinyAES の AES-CTR 暗号化性能を測定するベンチマークプログラム
+ *
+ * @details
+ * TinyAES DLL を動的にロードし、AES-CTR 暗号化の性能を
+ * 複数のデータサイズについて測定する。
+ *
+ * ベンチマークでは、Windows の高精度パフォーマンスカウンタ
+ * (QueryPerformanceCounter()) を使用して実行時間を計測し、
+ * 総実行時間、平均実行時間、およびスループットを算出する。
+ *
+ * 測定対象となるデータは VirtualAlloc() により確保し、
+ * touch_pages() を用いて事前に全ページへアクセスすることで、
+ * デマンドページングによるページフォールトの影響を低減する。
+ *
+ * AES-256 の固定キーを使用し、IV は BCryptGenRandom() により
+ * 各反復ごとにランダム生成する。
+ *
+ * 測定結果は標準出力へ表示するとともに、
+ * CSV ファイル (tiny_aes.csv) に保存する。
+ *
+ * コマンドライン引数により、ベンチマークの実行回数を指定できる。
+ *
+ * @note
+ * 本プログラムは Windows 専用であり、以下の Windows API を使用する。
+ * - QueryPerformanceCounter()
+ * - QueryPerformanceFrequency()
+ * - VirtualAlloc()
+ * - VirtualFree()
+ * - BCryptGenRandom()
+ *
+ * @see tinyaes_loader.h
+ */
 #include <stdio.h>
 #include <stdint.h>
 #include <windows.h>
