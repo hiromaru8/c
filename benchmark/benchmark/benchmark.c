@@ -42,11 +42,68 @@
 
 #define DLL_NAME "libtiny_aes.dll"
 
-
 /**
  * GROVAL VARIABLES
  */
 static LARGE_INTEGER freq;  // 高精度パフォーマンスカウンタの周波数を格納する変数
+
+
+/**
+ * @brief ベンチマーク結果を格納する構造体
+ */
+typedef struct BenchmarkResult {
+    size_t  data_size;      // ベンチマーク対象データサイズ（Byte）
+    int     iterations;     // ベンチマーク実行回数
+
+    int64_t elapsed_ticks;  // 総実行時間（パフォーマンスカウンタのティック数）
+
+    double  total_time;     // 総実行時間（秒）
+    double  average_time;   // 平均実行時間（秒）
+    double  throughput;     // スループット（MiBit/s）
+} BenchmarkResult;
+
+/**
+ * @brief ベンチマーク結果を計算する。
+ *
+ * @details
+ * 計測した経過ティック数から総実行時間、
+ * 平均実行時間、およびスループットを算出し、
+ * BenchmarkResult に格納する。
+ */
+static void calculate_result(
+    BenchmarkResult *result,
+    size_t data_size,
+    int iterations,
+    int64_t elapsed)
+{
+    result->data_size     = data_size;
+    result->iterations    = iterations;
+    result->elapsed_ticks = elapsed;
+
+    result->total_time =
+        (double)elapsed / (double)freq.QuadPart;
+
+    result->average_time =
+        result->total_time / iterations;
+
+    result->throughput =
+        ((double)data_size * 8.0 * iterations) /
+        (1024.0 * 1024.0) /
+        result->total_time;
+}
+
+/**
+ * @brief ベンチマーク結果を標準出力へ表示する。
+ * @param[in] result ベンチマーク結果
+ */
+static void print_result(const BenchmarkResult *result)
+{
+    printf("  elapsed    : %lld ticks\n", result->elapsed_ticks);
+    printf("  Total Time : %.8f sec\n", result->total_time);
+    printf("  Average    : %.8f sec\n", result->average_time);
+    printf("  Throughput : %.3f MiBit/s\n\n",
+           result->throughput);
+}
 
 /**
  * @brief 現在の高精度パフォーマンスカウンタ値を取得する。
@@ -115,24 +172,13 @@ static void touch_pages(uint8_t *p, size_t bytes)
  * @param[in] filename
  * 出力する CSV ファイル名。
  *
- * @param[in] data_size
- * ベンチマーク対象データサイズ（Byte）。
+ * @param[in] result
+ * ベンチマーク結果。
  *
- * @param[in] iterations
- * ベンチマーク実行回数。
- *
- * @param[in] total_time
- * 総実行時間（秒）。
- *
- * @param[in] throughput
- * スループット（MiBit/s）。
  */
 static void write_csv(
     const char *filename,
-    size_t data_size,
-    int iterations,
-    double total_time,
-    double throughput)
+    const BenchmarkResult *result)
 {
     int write_header = 0;
 
@@ -159,11 +205,11 @@ static void write_csv(
 
     fprintf(fp,
             "%zu,%d,%.8f,%.8f,%.3f\n",
-            data_size,
-            iterations,
-            total_time,
-            total_time / iterations,
-            throughput);
+            result->data_size,
+            result->iterations,
+            result->total_time,
+            result->average_time,
+            result->throughput);
 
     fclose(fp);
 }
@@ -175,9 +221,6 @@ static void write_csv(
  * 指定サイズのデータに対して AES-CTR 暗号化を
  * 指定回数繰り返し実行し、
  * 総実行時間およびスループットを測定する。
- *
- * 測定結果は標準出力へ表示するとともに、
- * CSV ファイルへ追記する。
  *
  * @param[in] aes
  * TinyAES ハンドル。
@@ -201,7 +244,8 @@ static void write_csv(
 static int measure_speed_tiny(
     TinyAES *aes,
     size_t data_size,
-    int iterations)
+    int iterations,
+    BenchmarkResult *result)
 {
     int ret = 1;                    // 戻り値 0:成功, 1:失敗
     uint8_t *data = NULL;           // ベンチマーク用のデータバッファ
@@ -286,26 +330,10 @@ static int measure_speed_tiny(
     /**
      * 測定結果を計算する。
      * elapsed : 総実行時間（パフォーマンスカウンタのティック数）
-     * total_time : 総実行時間（秒）
-     * throughput : スループット（MiBit/s）
      */
     int64_t elapsed = end.QuadPart - start.QuadPart;
-    double total_time = (double)elapsed / (double)freq.QuadPart;
-    double throughput =
-        ((double)data_size * 8.0 * iterations) /
-        (1024.0 * 1024.0) /
-        total_time;
+    calculate_result(result, data_size, iterations, elapsed);
 
-    printf("  elapsed    : %lld ticks\n", elapsed);
-    printf("  Total Time : %.8f sec\n", total_time);
-    printf("  Average    : %.8f sec\n", total_time / iterations);
-    printf("  Throughput : %.3f MiBit/s\n\n", throughput);
-
-    write_csv("tiny_aes.csv",
-              data_size,
-              iterations,
-              total_time,
-              throughput);
 
 
     ret = 0;
@@ -353,6 +381,7 @@ int main(int argc, char *argv[])
 {
     int ret = 0;
     int iterations = 1000;
+    BenchmarkResult result;
  
     /**
      * コマンドライン引数からベンチマークのiterations回数を取得する。
@@ -420,11 +449,13 @@ int main(int argc, char *argv[])
      */
     for (int i = 0; i < (int)(sizeof(sizes) / sizeof(sizes[0])); i++) {
         printf("Data Size : %zu bytes\n", sizes[i]);
-        if (measure_speed_tiny(aes, sizes[i], iterations) != 0) {
+        if (measure_speed_tiny(aes, sizes[i], iterations, &result) != 0) {
             fprintf(stderr, "Failed to measure speed for size %zu\n", sizes[i]);
             ret = 1;
             goto cleanup;
         }
+        print_result(&result);
+        write_csv("tiny_aes.csv", &result);
     }
 
 cleanup:
