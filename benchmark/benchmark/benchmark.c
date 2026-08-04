@@ -182,27 +182,37 @@ static void write_csv(
 {
     int write_header = 0;
 
+    /**
+     * CSV ファイルが存在するか確認する。また、存在する場合はヘッダ行があるか確認する。
+     */
     FILE *fp = fopen(filename, "r");
     if (!fp) {
+        // fopen() が失敗した場合、ファイルが存在しないと判断し、ヘッダ行を書き込む
         write_header = 1;
     } else {
         char buf[128];
+        // fgets() でファイルの先頭行を読み込み、ヘッダ行が存在するか確認する
         if (!fgets(buf, sizeof(buf), fp))
             write_header = 1;
         fclose(fp);
     }
 
+    /**
+     * CSV ファイルへ測定結果を書き込む。
+     * header が必要な場合はヘッダ行を書き込む（上書きモード）。
+     * header が不要な場合はデータ行のみを書き込む（追記モード）。
+     */
     fp = fopen(filename, write_header ? "w" : "a");
     if (!fp) {
         fprintf(stderr, "Cannot open %s\n", filename);
         return;
     }
-
+    // ヘッダ行を書き込む
     if (write_header) {
         fprintf(fp,
             "DataSize(Bytes),Iterations,TotalTime(sec),Average(sec),Throughput(MiBit/s)\n");
     }
-
+    // データ行を書き込む
     fprintf(fp,
             "%zu,%d,%.8f,%.8f,%.3f\n",
             result->data_size,
