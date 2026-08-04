@@ -13,8 +13,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 message(STATUS "CMAKE_BINARY_DIR = ${CMAKE_BINARY_DIR}")
 
 # 共通コンパイルオプション
-set(COMMON_C_FLAGS "-O3 -fverbose-asm -masm=intel")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_C_FLAGS}")
+add_compile_options(
+    -O3                 # 最適化レベル3を有効化
+    -fverbose-asm       # 詳細なアセンブリ出力を有効化
+    -masm=intel         # Intelアセンブリ構文を使用し、 -fverbose-asm と組み合わせて、アセンブリ出力を詳細にする
+)
 add_compile_options(
     -Wall               # すべての警告を有効化
     -Wextra             # 追加の警告を有効化
@@ -163,3 +166,8 @@ add_custom_target(asm_all
 
 # make / ninja で asm_all も同時にビルドさせたい場合
 add_dependencies(asm_all ttable_aes aes_ni_test benchmark_test)
+
+# ----------------------------
+# ビルド時の詳細表示
+# ----------------------------
+# set(CMAKE_VERBOSE_MAKEFILE ON)
