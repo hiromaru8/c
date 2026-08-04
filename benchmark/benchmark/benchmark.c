@@ -288,6 +288,8 @@ static int measure_speed_tiny(
     // }
     // locked = 1;
 
+    // /* AES-CTR 暗号化の初期化 */
+    // tinyaes_init(aes, &ctx, key, iv);
 
     /**
      * ==========　測定開始　=========
@@ -317,6 +319,8 @@ static int measure_speed_tiny(
 
         /* AES-CTR 暗号化の初期化 */
         tinyaes_init(aes, &ctx, key, iv);
+        // memcpy(ctx.Iv, iv, sizeof(iv));  // IVを更新する
+
         /* AES-CTR 暗号化を実行 */
         tinyaes_xcrypt(aes, &ctx, data, data_size);
         // printf("  data[0] = %02X, data[%zu] = %02X\n", data[0], data_size - 1, data[data_size - 1]);
