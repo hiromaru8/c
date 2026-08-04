@@ -40,7 +40,7 @@
 
 #include "tinyaes_loader.h"
 
-#define DLL_NAME "libtiny_aes.dll"
+#define DLL_NAME "libtinyAES256_CTR.dll"
 
 /**
  * GROVAL VARIABLES

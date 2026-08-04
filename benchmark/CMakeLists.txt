@@ -15,26 +15,110 @@ message(STATUS "CMAKE_BINARY_DIR = ${CMAKE_BINARY_DIR}")
 # 共通コンパイルオプション
 set(COMMON_C_FLAGS "-O3 -fverbose-asm -masm=intel")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_C_FLAGS}")
-    add_compile_options(
-        -Wall               # すべての警告を有効化
-        -Wextra             # 追加の警告を有効化
-        -Wpedantic          # 標準Cに準拠していないコードに対して警告を出す
-        -Wconversion        # 型変換に関する警告を有効化(int x = 1000;char c = x;値が欠落する可能性がある場合に警告を出す)
-        -Wsign-conversion   # 符号付き/符号なしの型変換に関する警告を有効化(int a = -1;unsigned int b = a;符号付きから符号なしへの変換で警告を出す)
-        -Wshadow            # 変数のスコープを超えて同じ名前の変数が定義されている場合に警告を出す
-        -Wformat=2          # printfやscanfなどのフォーマット文字列に関する警告を有効化(フォーマット文字列と引数の型が一致しない場合に警告を出す)
-        -Wundef             # 未定義のマクロを使用した場合に警告を出す(#defineされていないマクロを使用した場合に警告を出す)
-        -Wswitch-enum       # enum型のswitch文で、すべての列挙子を網羅していない場合に警告を出す
-    )
-# ----------------------------
-# tiny_aes_dll
-# ----------------------------
-add_library(tiny_aes SHARED
-    tiny_aes_dll/src/aes.c
-    tiny_aes_dll/src/aes_256_ctr.c
+add_compile_options(
+    -Wall               # すべての警告を有効化
+    -Wextra             # 追加の警告を有効化
+    -Wpedantic          # 標準Cに準拠していないコードに対して警告を出す
+    -Wconversion        # 型変換に関する警告を有効化(int x = 1000;char c = x;値が欠落する可能性がある場合に警告を出す)
+    -Wsign-conversion   # 符号付き/符号なしの型変換に関する警告を有効化(int a = -1;unsigned int b = a;符号付きから符号なしへの変換で警告を出す)
+    -Wshadow            # 変数のスコープを超えて同じ名前の変数が定義されている場合に警告を出す
+    -Wformat=2          # printfやscanfなどのフォーマット文字列に関する警告を有効化(フォーマット文字列と引数の型が一致しない場合に警告を出す)
+    -Wundef             # 未定義のマクロを使用した場合に警告を出す(#defineされていないマクロを使用した場合に警告を出す)
+    -Wswitch-enum       # enum型のswitch文で、すべての列挙子を網羅していない場合に警告を出す
 )
-target_include_directories(tiny_aes PUBLIC tiny_aes_dll/include)
-set_target_properties(tiny_aes PROPERTIES OUTPUT_NAME "tiny_aes")
+#------------------------------------------------------------
+# tiny-AES DLL生成関数
+#------------------------------------------------------------
+function(add_tinyaes_dll TARGET_NAME KEY_SIZE MODE)
+
+    add_library(${TARGET_NAME} SHARED
+        tiny_aes_dll/src/aes.c
+    )
+
+    target_include_directories(${TARGET_NAME}
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+
+    #
+    # 暗号モード
+    #
+    if(MODE STREQUAL "CTR")
+        target_compile_definitions(${TARGET_NAME}
+            PRIVATE
+                CTR=1
+                CBC=0
+                ECB=0
+        )
+
+    elseif(MODE STREQUAL "CBC")
+        target_compile_definitions(${TARGET_NAME}
+            PRIVATE
+                CTR=0
+                CBC=1
+                ECB=0
+        )
+
+    elseif(MODE STREQUAL "ECB")
+        target_compile_definitions(${TARGET_NAME}
+            PRIVATE
+                CTR=0
+                CBC=0
+                ECB=1
+        )
+    endif()
+
+    #
+    # 鍵長
+    #
+    if(KEY_SIZE STREQUAL "128")
+        target_compile_definitions(${TARGET_NAME}
+            PRIVATE
+                AES128=1
+        )
+
+    elseif(KEY_SIZE STREQUAL "192")
+        target_compile_definitions(${TARGET_NAME}
+            PRIVATE
+                AES192=1
+        )
+
+    elseif(KEY_SIZE STREQUAL "256")
+        target_compile_definitions(${TARGET_NAME}
+            PRIVATE
+                AES256=1
+        )
+    endif()
+
+    #
+    # DLL名(libプレフィックスは付けない)
+    #
+    set_target_properties(${TARGET_NAME}
+        PROPERTIES
+            PREFIX ""
+            OUTPUT_NAME ${TARGET_NAME}
+    )
+endfunction()
+#------------------------------------------------------------
+# CTR
+#------------------------------------------------------------
+add_tinyaes_dll(libtinyAES128_CTR 128 CTR)
+add_tinyaes_dll(libtinyAES192_CTR 192 CTR)
+add_tinyaes_dll(libtinyAES256_CTR 256 CTR)
+
+#------------------------------------------------------------
+# ECB
+#------------------------------------------------------------
+add_tinyaes_dll(libtinyAES128_ECB 128 ECB)
+add_tinyaes_dll(libtinyAES192_ECB 192 ECB)
+add_tinyaes_dll(libtinyAES256_ECB 256 ECB)
+
+#------------------------------------------------------------
+# CBC
+#------------------------------------------------------------
+add_tinyaes_dll(libtinyAES128_CBC 128 CBC)
+add_tinyaes_dll(libtinyAES192_CBC 192 CBC)
+add_tinyaes_dll(libtinyAES256_CBC 256 CBC)
 
 # ----------------------------
 # ttable_aes_dll
@@ -78,4 +162,4 @@ add_custom_target(asm_all
 )
 
 # make / ninja で asm_all も同時にビルドさせたい場合
-add_dependencies(asm_all tiny_aes ttable_aes aes_ni_test benchmark_test)
+add_dependencies(asm_all ttable_aes aes_ni_test benchmark_test)
