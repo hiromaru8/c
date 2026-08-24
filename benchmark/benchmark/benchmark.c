@@ -471,12 +471,16 @@ int main(int argc, char *argv[])
         print_result(&result);
         write_csv("tiny_aes.csv", &result);
     }
-
+    
 cleanup:
     /**
      * TinyAES DLL をアンロードする。
      */
     if (aes)
         tinyaes_close(aes);
+
+    printf("Benchmark finished.\n");
+    printf("Press Enter to exit...");
+    getchar();
     return ret;
 }
